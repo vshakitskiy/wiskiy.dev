@@ -1,3 +1,1 @@
-# wskiy.de
-
-![preview](./preview.png)
+# wiskiy.dev

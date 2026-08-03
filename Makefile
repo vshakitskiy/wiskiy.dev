@@ -1,19 +1,28 @@
-.PHONY: build watch serve dev
+.PHONY: client client-ssg client-islands client-watch serve dev
 
-build:
-	gleam run -m build
+ISLANDS := web/islands/guestbook
 
-watch:
-	@echo "Watching assets/, src/, writing/ for changes..."
+client: client-ssg client-islands
+
+client-ssg:
+	cd web && gleam run -m build
+
+client-islands:
+	cd web && gleam run -m lustre/dev build --minify --no-html \
+		--outdir=dist/js $(ISLANDS)
+
+client-watch:
+	@echo "Watching web/{src,priv,writing} for changes..."
 	@while true; do \
-		inotifywait -r -e modify,create,delete,move assets src writing 2>/dev/null; \
+		inotifywait -qr -e modify,create,delete,move \
+			web/src web/priv web/writing 2>/dev/null; \
 		echo "Change detected, rebuilding..."; \
-		$(MAKE) build; \
+		$(MAKE) client; \
 	done
 
 serve:
-	bunx serve dist -p 8080
+	deno run --allow-net --allow-read scripts/http_server_files.ts
 
 dev:
-	@$(MAKE) build
-	@bunx serve dist -p 8080 & $(MAKE) watch
+	@$(MAKE) client
+	@$(MAKE) serve & $(MAKE) client-watch
