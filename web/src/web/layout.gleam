@@ -53,18 +53,6 @@ fn scripts(islands: List(Island)) -> List(Element(a)) {
   html.script([attr.src("/js/" <> module <> ".js"), attr.type_("module")], "")
 }
 
-fn nav() -> Element(a) {
-  html.nav([], [
-    link("home", "/"),
-    link("work", "/work.html"),
-    link("guestbook", "/guestbook.html"),
-  ])
-}
-
 fn footer() -> Element(a) {
   html.footer([], [html.text("`footer`")])
-}
-
-fn link(text: String, to href: String) -> Element(a) {
-  html.a([attr.href(href)], [html.text(text)])
 }

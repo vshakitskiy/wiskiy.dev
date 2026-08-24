@@ -1,24 +1,28 @@
-import lustre/attribute as attr
+import lustre/attribute
 import lustre/element.{type Element}
 import lustre/element/html
 import web/islands/guestbook
+import web/islands/presence
 import web/layout.{Island}
 
 // TODO: any webrings??? 
 
 pub fn home() -> Element(Nil) {
+  let #(presence_model, _effect) = presence.init(Nil)
+
   layout.page(
     title: "Home",
     description: "software engineer & gleam enthusiast",
-    islands: [],
+    islands: [Island("presence")],
     body: [
       html.section([], [
-        // TODO: discord presence circle color status with lanyard 
-        // TODO: show soundcloud track from discord presence on top
-        html.h1([], [html.text("wiskiy")]),
+        html.div([attribute.id(presence.mount_id)], [
+          presence.view(presence_model)
+          |> layout.strip_message,
+        ]),
         html.p([], [html.text("software engineer & gleam enthusiast")]),
         html.ul([], [
-          // TODO: github, tangled, discord, telegram as api redirects..?
+          // TODO: github, tangled, discord and telegram links
         ]),
       ]),
       html.section([], [
@@ -49,15 +53,6 @@ pub fn home() -> Element(Nil) {
   )
 }
 
-pub fn work() -> Element(Nil) {
-  layout.page(
-    title: "Work",
-    description: "Things I've built.",
-    islands: [],
-    body: [html.h1([], [html.text("Work")])],
-  )
-}
-
 pub fn guestbook() -> Element(Nil) {
   let #(model, _effect) = guestbook.init(Nil)
 
@@ -67,7 +62,7 @@ pub fn guestbook() -> Element(Nil) {
     islands: [Island("guestbook")],
     body: [
       html.h1([], [html.text("Guestbook")]),
-      html.section([attr.id(guestbook.mount_id)], [
+      html.section([attribute.id(guestbook.mount_id)], [
         guestbook.view(model)
         |> layout.strip_message,
       ]),

@@ -10,13 +10,19 @@ const out_dir = "dist"
 
 const assets_dir = "priv/assets"
 
+const pages = [
+  #(page.home, "index.html"),
+  #(page.guestbook, "guestbook.html"),
+  #(page.not_found, "not_found.html"),
+]
+
 pub fn main() -> Nil {
   let assert Ok(Nil) = {
     use dir <- temporary.create(temporary.directory())
 
-    list.each(pages(), fn(entry) {
-      let #(element, filename) = entry
-      write_page(dir, element, filename)
+    list.each(pages, fn(entry) {
+      let #(view, filename) = entry
+      write_page(dir, view(), filename)
     })
 
     let assert Ok(_) = simplifile.copy_directory(at: assets_dir, to: dir)
@@ -32,15 +38,6 @@ pub fn main() -> Nil {
   }
 
   io.println("Built " <> out_dir <> "/")
-}
-
-fn pages() -> List(#(Element(Nil), String)) {
-  [
-    #(page.home(), "index.html"),
-    #(page.work(), "work.html"),
-    #(page.guestbook(), "guestbook.html"),
-    #(page.not_found(), "404.html"),
-  ]
 }
 
 fn write_page(
