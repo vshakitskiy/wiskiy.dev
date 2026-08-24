@@ -13,9 +13,7 @@ pub fn main() -> Nil {
   let assert Ok(_) =
     handle_request
     |> wisp_ewe.handler(secret_key_base)
-    |> fn(handler) {
-      ewe.new(listener_name:, connection_factory_name:, handler:)
-    }
+    |> ewe.new(listener_name, connection_factory_name, _)
     |> ewe.listening(on: 8080)
     |> ewe.bind(to: "0.0.0.0")
     |> ewe.start

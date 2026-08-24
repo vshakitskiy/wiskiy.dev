@@ -89,7 +89,7 @@ fn ewe_send_file(
     Ok(file) -> response.set_body(resp, file)
     Error(error) -> {
       string.inspect(error)
-      |> wisp.log_error()
+      |> wisp.log_error
 
       response.new(500) |> response.set_body(ewe.Empty)
     }
