@@ -1,3 +1,4 @@
+import api/activity
 import envoy
 import filepath
 import gleam/http/request
@@ -15,7 +16,17 @@ pub type Environment {
 }
 
 pub type Context {
-  Context(mode: Environment, port: Int, static_directory: String)
+  Context(
+    mode: Environment,
+    port: Int,
+    static_directory: String,
+    activity: Activity,
+  )
+}
+
+pub type Activity {
+  Unconfigured
+  Configured(credentials: activity.Credentials)
 }
 
 const default_port = 8080
@@ -33,7 +44,21 @@ pub fn create_context() -> Context {
       |> result.unwrap(default_port),
     static_directory: envoy.get("STATIC_DIRECTORY")
       |> result.unwrap(default_static_directory),
+    activity: create_activity(),
   )
+}
+
+fn create_activity() -> Activity {
+  let credentials = {
+    use login <- result.try(envoy.get("GITHUB_LOGIN"))
+    use token <- result.try(envoy.get("GITHUB_TOKEN"))
+    activity.credentials(login, token)
+  }
+
+  case credentials {
+    Ok(credentials) -> Configured(credentials:)
+    Error(Nil) -> Unconfigured
+  }
 }
 
 pub fn serve(request: wisp.Request, from directory: String) -> wisp.Response {

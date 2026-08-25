@@ -121,3 +121,81 @@ nav a {
   font-size: 0.75em;
   opacity: 0.55;
 }
+
+/* --- github activity island --- */
+
+.activity-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 1fr);
+  grid-auto-columns: 1fr;
+  gap: 2px;
+}
+
+.activity-cell {
+  aspect-ratio: 1;
+  min-width: 8px;
+  border-radius: 2px;
+  background: var(--activity-level, color-mix(in srgb, currentColor 8%, transparent));
+}
+
+.activity-level-0 {
+  --activity-level: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.activity-level-1 {
+  --activity-level: color-mix(in srgb, #39d353 30%, transparent);
+}
+
+.activity-level-2 {
+  --activity-level: color-mix(in srgb, #39d353 50%, transparent);
+}
+
+.activity-level-3 {
+  --activity-level: color-mix(in srgb, #39d353 75%, transparent);
+}
+
+.activity-level-4 {
+  --activity-level: #39d353;
+}
+
+.activity-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  margin-top: 0.5em;
+}
+
+.activity-legend .activity-cell {
+  width: 8px;
+  min-width: 8px;
+}
+
+.activity-legend-text {
+  font-size: 0.7rem;
+  opacity: 0.55;
+  margin: 0 0.3em;
+}
+
+.activity-cell[data-day] {
+  position: relative;
+  cursor: help;
+}
+
+.activity-cell[data-day]:hover::after {
+  content: attr(data-day);
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1;
+  padding: 0.3em 0.5em;
+  border-radius: 4px;
+  background: #1c1c1c;
+  color: #eee;
+  font-size: 0.7rem;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
+}
