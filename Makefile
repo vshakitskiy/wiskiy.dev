@@ -1,6 +1,6 @@
-.PHONY: client client-ssg client-islands api dev
+.PHONY: client client-ssg client-islands api dev previews
 
-ISLANDS := web/islands/guestbook web/islands/presence web/islands/activity
+ISLANDS := web/islands/guestbook web/islands/presence web/islands/activity web/islands/work
 
 client: client-ssg client-islands
 
@@ -18,3 +18,6 @@ dev:
 	watchexec -w web/src -w web/priv -- $(MAKE) client & \
 	watchexec -r -w api/src -- $(MAKE) api & \
 	wait
+
+previews:
+	deno task previews $(FORCE)

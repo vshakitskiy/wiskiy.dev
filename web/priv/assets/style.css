@@ -20,10 +20,46 @@ nav a {
 
 /* --- discord presence island --- */
 
+
+.presence {
+  --presence-track: 3.35rem;
+  position: relative;
+  padding-top: var(--presence-track);
+}
+
 .presence-name {
   display: flex;
   align-items: center;
   gap: 0.4em;
+}
+
+/* Swapping animation-name restarts the animation, which is how an exit gets to
+   play at all: the element is still mounted, just marked as leaving. */
+@keyframes fall-out {
+  from {
+    opacity: 1;
+    filter: blur(0);
+    translate: 0 0;
+  }
+  to {
+    opacity: 0;
+    filter: blur(4px);
+    translate: 0 4px;
+  }
+}
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+    translate: 0 4px;
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+    translate: 0 0;
+  }
 }
 
 .presence-status {
@@ -32,6 +68,7 @@ nav a {
   height: 0.45em;
   border-radius: 50%;
   flex: none;
+  animation: rise-in 0.45s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
 
 .presence-status-online {
@@ -51,19 +88,32 @@ nav a {
 }
 
 .presence-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--presence-track);
   display: flex;
   align-items: center;
   gap: 0.6em;
-  margin: 0 0 0.5em;
+  margin: 0;
   font-size: 0.85rem;
+  animation: rise-in 0.5s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.presence-track.is-ending {
+  animation: fall-out 0.4s cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
 
 .presence-track-artwork {
   width: 2.75em;
   height: 2.75em;
   border-radius: 4px;
-  object-fit: cover;
   flex: none;
+  background-color: color-mix(in srgb, currentColor 10%, transparent);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
 .presence-track-text {
@@ -183,7 +233,11 @@ nav a {
   cursor: help;
 }
 
-.activity-cell[data-day]:hover::after {
+/* Always in the page, just hidden. A ::after generated on hover can animate in
+   but not out: by the time the pointer leaves there is no element left to run
+   an animation on. Keeping it and transitioning between two states gives both
+   directions. `transform` already centres it, so motion rides on `translate`. */
+.activity-cell[data-day]::after {
   content: attr(data-day);
   position: absolute;
   bottom: calc(100% + 6px);
@@ -198,4 +252,150 @@ nav a {
   white-space: nowrap;
   pointer-events: none;
   box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
+
+  opacity: 0;
+  filter: blur(3px);
+  translate: 0 3px;
+  transition-property: opacity, filter, translate;
+  transition-duration: 0.2s;
+  transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.activity-cell[data-day]:hover::after {
+  opacity: 1;
+  filter: blur(0);
+  translate: 0 0;
+}
+
+
+/* --- featured work --- */
+
+.work {
+  --work-row: 4.2rem;
+  position: relative;
+}
+
+.work-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-width: 24rem;
+}
+
+.work-item {
+  height: var(--work-row);
+}
+
+.work-link {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.15em;
+  height: 100%;
+  text-decoration: none;
+  color: inherit;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+  transition-property: opacity;
+  transition-duration: 0.3s;
+  transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.work-list:hover .work-link {
+  opacity: 0.45;
+}
+
+.work-list .work-link:hover,
+.work-list .work-link:focus-visible {
+  opacity: 1;
+}
+
+.work-name {
+  font-weight: 600;
+}
+
+.work-description {
+  font-size: 0.8rem;
+  opacity: 0.65;
+}
+
+.work-preview {
+  position: absolute;
+  top: 0;
+  left: 26rem;
+  width: 20rem;
+  aspect-ratio: 16 / 10;
+  border-radius: 8px;
+  overflow: hidden;
+  pointer-events: none;
+  box-shadow: 0 8px 30px rgb(0 0 0 / 0.3);
+  z-index: 5;
+  will-change: transform, translate, opacity, filter;
+
+  opacity: 0;
+  filter: blur(4px);
+  translate: -6px 0;
+
+  transition-property: transform, translate, opacity, filter;
+  transition-duration: 0.5s, 0.4s, 0.35s, 0.35s;
+  transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.work-preview.is-shown {
+  opacity: 1;
+  filter: blur(0px);
+  translate: 0 0;
+}
+
+.work-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+}
+
+.work-media.is-shown {
+  opacity: 1;
+}
+
+@media (max-width: 52rem) {
+  .work-preview {
+    display: none;
+  }
+
+  .work-list {
+    max-width: none;
+  }
+}
+
+/* --- socials --- */
+
+.socials {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+}
+
+.social-link {
+  display: inline-flex;
+  color: inherit;
+  opacity: 0.55;
+  transition-property: opacity;
+  transition-duration: 0.2s;
+  transition-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.social-link:hover,
+.social-link:focus-visible {
+  opacity: 1;
+}
+
+.social-icon {
+  width: 1.15em;
+  height: 1.15em;
+  display: block;
 }
