@@ -29,7 +29,7 @@ pub const projects = [
   ),
   Project(
     name: "tup",
-    description: "acceptor pool using relay_supervisor",
+    description: "acceptor pool using relay supervisor",
     url: "https://github.com/vshakitskiy/tup",
     media: Image("/work/tup.png"),
   ),
