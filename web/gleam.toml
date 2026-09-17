@@ -10,6 +10,9 @@ filepath = ">= 1.1.2 and < 2.0.0"
 gleam_json = ">= 3.1.0 and < 4.0.0"
 rsvp = ">= 2.0.0 and < 3.0.0"
 gleam_time = ">= 1.4.0 and < 2.0.0"
+mork = ">= 1.12.1 and < 2.0.0"
+frontmatter = ">= 1.0.1 and < 2.0.0"
+tom = ">= 2.1.0 and < 3.0.0"
 
 [dev_dependencies]
 gleeunit = ">= 1.0.0 and < 2.0.0"

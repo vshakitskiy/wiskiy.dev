@@ -5,6 +5,10 @@ import lustre/element/html
 
 const site_name = "wiskiy.dev"
 
+const feed_path = "/feed.xml"
+
+const source = "https://github.com/vshakitskiy/wiskiy.dev"
+
 pub type Island {
   Island(module: String)
 }
@@ -39,7 +43,7 @@ fn head(title: String, description: String) -> Element(a) {
     html.link([
       attr.rel("alternate"),
       attr.type_("application/rss+xml"),
-      attr.href("/feed.xml"),
+      attr.href(feed_path),
     ]),
     html.script(
       [attr.type_("speculationrules")],
@@ -54,5 +58,21 @@ fn scripts(islands: List(Island)) -> List(Element(a)) {
 }
 
 fn footer() -> Element(a) {
-  html.footer([], [html.text("`footer`")])
+  html.footer([attr.class("footer")], [
+    html.span([], [
+      html.text("made with "),
+      out("Lustre", "https://lustre.build"),
+    ]),
+    html.span([attr.class("footer-links")], [
+      out("source", source),
+      out("feed", feed_path),
+    ]),
+  ])
+}
+
+fn out(text: String, url: String) -> Element(a) {
+  html.a(
+    [attr.href(url), attr.target("_blank"), attr.rel("noopener noreferrer")],
+    [html.text(text)],
+  )
 }
