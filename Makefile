@@ -1,6 +1,6 @@
 .PHONY: client client-ssg client-islands api dev previews
 
-ISLANDS := web/islands/guestbook web/islands/presence web/islands/activity web/islands/work
+ISLANDS := web/islands/guestbook web/islands/presence web/islands/activity web/islands/work web/islands/archive web/islands/age
 
 client: client-ssg client-islands
 

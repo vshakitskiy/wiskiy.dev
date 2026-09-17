@@ -1,21 +1,18 @@
 //// GitHub contribution grid filled in from the api.
 
 import gleam/dynamic/decode
-import gleam/float
 import gleam/int
 import gleam/list
 import gleam/order
 import gleam/result
-import gleam/string
 import gleam/time/calendar
-import gleam/time/duration
-import gleam/time/timestamp
 import lustre
 import lustre/attribute as attr
 import lustre/effect.{type Effect}
 import lustre/element.{type Element}
 import lustre/element/html
 import rsvp
+import web/date
 
 pub const mount_id = "activity"
 
@@ -103,7 +100,7 @@ pub fn slots(counts: List(Int)) -> List(Int) {
 pub fn view(model: Model) -> Element(Message) {
   let #(counts, start) = case model.calendar {
     Loading | Unavailable -> #([], Error(Nil))
-    Loaded(counts:, start:, ..) -> #(counts, parse_date(start))
+    Loaded(counts:, start:, ..) -> #(counts, date.parse(start))
   }
 
   let reported = list.length(counts)
@@ -120,7 +117,7 @@ pub fn view(model: Model) -> Element(Message) {
       list.index_map(cells, fn(count, index) {
         cell(count, busiest, case index < reported {
           False -> Error(Nil)
-          True -> result.map(start, day_at(_, index))
+          True -> result.map(start, date.day_at(_, index))
         })
       }),
     ),
@@ -131,11 +128,11 @@ pub fn view(model: Model) -> Element(Message) {
 fn cell(
   count: Int,
   busiest: Int,
-  date: Result(calendar.Date, Nil),
+  day: Result(calendar.Date, Nil),
 ) -> Element(a) {
-  let described = case date {
+  let described = case day {
     Error(Nil) -> []
-    Ok(date) -> [attr.attribute("data-day", describe(count, date))]
+    Ok(day) -> [attr.attribute("data-day", describe(count, day))]
   }
 
   html.div(
@@ -149,13 +146,13 @@ fn cell(
   )
 }
 
-fn describe(count: Int, date: calendar.Date) -> String {
+fn describe(count: Int, day: calendar.Date) -> String {
   let when =
-    weekday(date)
+    date.weekday(day)
     <> ", "
-    <> int.to_string(date.day)
+    <> int.to_string(day.day)
     <> " "
-    <> calendar.month_to_string(date.month)
+    <> calendar.month_to_string(day.month)
 
   case count {
     0 -> "No contributions on " <> when
@@ -185,59 +182,5 @@ fn label(calendar: Calendar) -> String {
     Unavailable -> "GitHub contributions, unavailable"
     Loaded(total:, ..) ->
       int.to_string(total) <> " contributions in the last year"
-  }
-}
-
-// DATES -----------------------------------------------------------------------
-
-pub fn weekday(date: calendar.Date) -> String {
-  case weekday_index(date) {
-    0 -> "Sunday"
-    1 -> "Monday"
-    2 -> "Tuesday"
-    3 -> "Wednesday"
-    4 -> "Thursday"
-    5 -> "Friday"
-    _saturday -> "Saturday"
-  }
-}
-
-fn weekday_index(date: calendar.Date) -> Int {
-  let seconds =
-    timestamp.from_calendar(
-      date,
-      calendar.TimeOfDay(12, 0, 0, 0),
-      calendar.utc_offset,
-    )
-    |> timestamp.to_unix_seconds
-    |> float.round
-
-  let days = int.floor_divide(seconds, 86_400) |> result.unwrap(0)
-  int.modulo(days + 4, days_in_week) |> result.unwrap(0)
-}
-
-pub fn day_at(start: calendar.Date, offset: Int) -> calendar.Date {
-  let #(date, _time) =
-    timestamp.from_calendar(
-      start,
-      calendar.TimeOfDay(12, 0, 0, 0),
-      calendar.utc_offset,
-    )
-    |> timestamp.add(duration.hours(24 * offset))
-    |> timestamp.to_calendar(calendar.utc_offset)
-
-  date
-}
-
-fn parse_date(text: String) -> Result(calendar.Date, Nil) {
-  case string.split(text, "-") {
-    [year, month, day] -> {
-      use year <- result.try(int.parse(year))
-      use month <- result.try(int.parse(month))
-      use day <- result.try(int.parse(day))
-      use month <- result.try(calendar.month_from_int(month))
-      Ok(calendar.Date(year:, month:, day:))
-    }
-    _malformed -> Error(Nil)
   }
 }

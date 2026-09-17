@@ -17,6 +17,7 @@ import lustre/effect.{type Effect}
 import lustre/element.{type Element}
 import lustre/element/html
 import lustre/element/keyed
+import web/browser
 
 pub const mount_id = "presence"
 
@@ -241,13 +242,13 @@ fn tick_after(milliseconds: Int) -> Effect(Message) {
 
 fn end_track_after(milliseconds: Int) -> Effect(Message) {
   use dispatch <- effect.from
-  use <- after(milliseconds:)
+  use <- browser.after(milliseconds:)
   dispatch(TrackEnded)
 }
 
 fn reconnect_after(milliseconds: Int) -> Effect(Message) {
   use dispatch <- effect.from
-  use <- after(milliseconds:)
+  use <- browser.after(milliseconds:)
   dispatch(ReconnectDelayElapsed)
 }
 
@@ -595,11 +596,6 @@ fn heartbeat(
   milliseconds _milliseconds: Int,
   payload _payload: String,
 ) -> Nil {
-  Nil
-}
-
-@external(javascript, "./presence_ffi.mjs", "after")
-fn after(milliseconds _milliseconds: Int, run _run: fn() -> Nil) -> Nil {
   Nil
 }
 

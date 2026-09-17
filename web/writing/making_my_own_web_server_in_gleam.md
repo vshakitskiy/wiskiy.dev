@@ -1,6 +1,6 @@
 ---
 title = "How I made my own web server in Gleam"
-date = "19 October, 2025"
+date = "2025-10-19"
 description = "Making a web server is a fun and challenging project. And what could be better than using your favorite technology to build it?"
 public = true
 tags = ["gleam"]
