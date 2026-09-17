@@ -112,15 +112,16 @@ body {
 /* discord presence island --------------------------------------------------- */
 
 .presence {
-  --presence-track: 3.35rem;
+  --presence-art: 2.9rem;
+  --presence-gap: var(--space-m);
   position: relative;
-  padding-top: var(--presence-track);
+  padding-top: calc(var(--presence-art) + var(--presence-gap));
 }
 
 .presence-name {
   display: flex;
   align-items: center;
-  gap: 0.4em;
+  gap: 0.55em;
 }
 
 @keyframes fall-out {
@@ -152,42 +153,71 @@ body {
 }
 
 .presence-status {
+  --status-shift: 0.06em;
+  position: relative;
+  top: var(--status-shift);
   display: inline-block;
   width: 0.45em;
   height: 0.45em;
   border-radius: 50%;
   flex: none;
+  background: var(--status);
   animation-name: rise-in;
   animation-duration: var(--slow);
   animation-timing-function: var(--ease);
   animation-fill-mode: both;
 }
 
+.presence-status::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--status);
+  animation-name: ping;
+  animation-duration: 3.2s;
+  animation-timing-function: var(--settle);
+  animation-iteration-count: infinite;
+}
+
+@keyframes ping {
+ 0% {
+    opacity: 0.55;
+    scale: 1;
+  }
+
+ 35% {
+    opacity: 0;
+    scale: 3.4;
+  }
+
+ 100% {
+    opacity: 0;
+    scale: 3.4;
+  }
+}
+
 .presence-status-online {
-  background: #23a55a;
+  --status: #23a55a;
 }
 
 .presence-status-idle {
-  background: #f0b232;
+  --status: #f0b232;
 }
 
 .presence-status-dnd {
-  background: #f23f43;
-}
-
-.presence-status-offline {
-  background: #80848e;
+  --status: #f23f43;
 }
 
 .presence-track {
   position: absolute;
   top: 0;
   left: 0;
-  right: 0;
-  height: var(--presence-track);
+  height: var(--presence-art);
   display: flex;
-  align-items: center;
-  gap: 0.6em;
+  align-items: stretch;
+  gap: var(--space-s);
+  max-width: 100%;
   margin: 0;
   font-size: var(--text-m);
   animation-name: rise-in;
@@ -204,8 +234,9 @@ body {
 }
 
 .presence-track-artwork {
-  width: 2.75em;
-  height: 2.75em;
+  width: auto;
+  height: 100%;
+  aspect-ratio: 1;
   border-radius: var(--radius-s);
   flex: none;
   background-color: var(--hairline);
@@ -217,6 +248,7 @@ body {
 .presence-track-text {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   min-width: 0;
 }
 
@@ -231,11 +263,18 @@ body {
   opacity: var(--muted);
 }
 
+.presence-track-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.6em;
+  min-width: 0;
+}
+
 .presence-track-position {
   display: flex;
   align-items: center;
   gap: 0.5em;
-  margin-top: 0.2em;
+  flex: none;
 }
 
 .presence-track-bar {
