@@ -218,20 +218,9 @@ fn flag() -> Element(Nil) {
         ]),
       ]),
       svg.g([attribute.attribute("clip-path", "url(#" <> flag_clip <> ")")], [
-        band(0.0, "#ffffff"),
-        band(2.0, "#0039a6"),
-        band(4.0, "#d52b1e"),
-      ]),
-      svg.rect([
-        attribute.attribute("x", "0.15"),
-        attribute.attribute("y", "0.15"),
-        attribute.attribute("width", "8.7"),
-        attribute.attribute("height", "5.7"),
-        attribute.attribute("rx", "0.7"),
-        attribute.attribute("fill", "none"),
-        attribute.attribute("stroke", "currentColor"),
-        attribute.attribute("stroke-opacity", "0.35"),
-        attribute.attribute("stroke-width", "0.3"),
+        band(0.0, "#ebe6dc"),
+        band(2.0, "#002f87"),
+        band(4.0, "#bf2419"),
       ]),
     ],
   )

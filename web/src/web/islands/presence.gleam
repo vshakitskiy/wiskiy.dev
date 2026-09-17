@@ -460,15 +460,19 @@ fn name_view(after_name: List(Element(a))) -> Element(a) {
 }
 
 fn status_view(status: Status) -> Element(a) {
-  html.span(
-    [
-      attr.class("presence-status presence-status-" <> status_slug(status)),
-      attr.attribute("role", "img"),
-      attr.attribute("aria-label", status_label(status)),
-      attr.title(status_label(status)),
-    ],
-    [],
-  )
+  case status {
+    Offline -> element.none()
+    Online | Idle | DoNotDisturb ->
+      html.span(
+        [
+          attr.class("presence-status presence-status-" <> status_slug(status)),
+          attr.attribute("role", "img"),
+          attr.attribute("aria-label", status_label(status)),
+          attr.title(status_label(status)),
+        ],
+        [],
+      )
+  }
 }
 
 fn status_slug(status: Status) -> String {
@@ -506,8 +510,10 @@ fn track_view(
     artwork_view(artwork, title),
     html.div([attr.class("presence-track-text")], [
       html.span([attr.class("presence-track-title")], [html.text(title)]),
-      html.span([attr.class("presence-track-artist")], [html.text(artist)]),
-      position_view(timing, clock),
+      html.div([attr.class("presence-track-meta")], [
+        html.span([attr.class("presence-track-artist")], [html.text(artist)]),
+        position_view(timing, clock),
+      ]),
     ]),
   ])
 }
