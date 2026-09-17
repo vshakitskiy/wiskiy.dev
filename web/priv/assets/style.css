@@ -1,72 +1,102 @@
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
 
-  /* Spacing. */
+  --background: #1a1817;
+  --text: #faf5ec;
+  --accent: #f7a0b8;
+
+  --hairline: color-mix(in srgb, var(--accent) 18%, transparent);
+  --hairline-strong: color-mix(in srgb, var(--accent) 40%, transparent);
+  --surface: color-mix(in srgb, var(--accent) 10%, transparent);
+  --surface-strong: color-mix(in srgb, var(--accent) 25%, transparent);
+  --raised: color-mix(in srgb, var(--text) 8%, var(--background));
+  --stone: color-mix(in srgb, var(--text) 5%, var(--background));
+  --muted: 0.6;
+
+  font-size: clamp(16px, 4px + 1vw, 20px);
+
+  --text-xs: 0.7rem;
+  --text-s: 0.8rem;
+  --text-m: 0.85rem;
+
+  --space-3xs: 0.15rem;
   --space-2xs: 0.3rem;
   --space-xs: 0.5rem;
   --space-s: 0.75rem;
   --space-m: 1rem;
   --space-l: 1.5rem;
-  --space-xl: 2.5rem;
+  --space-xl: 2rem;
+  --space-top: 4rem;
 
-  /* Text. */
-  --text-xs: 0.7rem;
-  --text-s: 0.8rem;
-  --text-m: 0.85rem;
-
-  /* Lines and fills. */
-  --hairline: color-mix(in srgb, currentColor 10%, transparent);
-  --hairline-strong: color-mix(in srgb, currentColor 30%, transparent);
-  --surface: color-mix(in srgb, currentColor 8%, transparent);
-  --surface-strong: color-mix(in srgb, currentColor 22%, transparent);
-
-  /* How far secondary text is dimmed. */
-  --muted: 0.6;
-  --faint: 0.45;
-
-  --cell-min: 8px;
+  --measure: 42rem;
+  --cell-min: 0.5rem;
 
   --radius-s: 4px;
   --radius-m: 8px;
   --radius-pill: 999px;
+  --rule: 1px;
 
-  /* Motion. */
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --settle: cubic-bezier(0.16, 1, 0.3, 1);
   --fast: 0.2s;
   --medium: 0.3s;
   --slow: 0.45s;
-
-  --measure: 42rem;
+  --sweep: 0.9s;
 }
+
+
+/* base -------------------------------------------------------------------- */
 
 @view-transition {
   navigation: auto;
 }
 
 body {
+  background: var(--background);
+  color: var(--text);
   max-width: var(--measure);
   margin: 0 auto;
-  padding: var(--space-xl) var(--space-m);
+  padding: var(--space-top) var(--space-m) var(--space-xl);
   font-family: system-ui, sans-serif;
   line-height: 1.6;
 }
 
-main>section+section {
-  margin-block-start: var(--space-xl);
-}
-
-main>section>*+* {
-  margin-block-start: var(--space-s);
+h1,
+h2,
+h3,
+p,
+ul,
+ol {
+  margin-block: 0;
 }
 
 h1,
-h2 {
-  margin-block: 0;
+h2,
+h3 {
   line-height: 1.25;
 }
 
-p {
-  margin-block: 0;
+main > * + *,
+main > section > * + *,
+.post > * + * {
+  margin-block-start: var(--space-s);
+}
+
+.post > * + * {
+  margin-block-start: var(--space-m);
+}
+
+main > section > h2 + *,
+.post > h2 + * {
+  margin-block-start: var(--space-m);
+}
+
+.post > h2 {
+  margin-block-start: var(--space-l);
+}
+
+main > section + section {
+  margin-block-start: var(--space-xl);
 }
 
 img,
@@ -79,7 +109,7 @@ body {
   overflow-wrap: break-word;
 }
 
-/* --- discord presence island --- */
+/* discord presence island --------------------------------------------------- */
 
 .presence {
   --presence-track: 3.35rem;
@@ -94,13 +124,13 @@ body {
 }
 
 @keyframes fall-out {
-  from {
+ from {
     opacity: 1;
     filter: blur(0);
     translate: 0 0;
   }
 
-  to {
+ to {
     opacity: 0;
     filter: blur(4px);
     translate: 0 4px;
@@ -108,13 +138,13 @@ body {
 }
 
 @keyframes rise-in {
-  from {
+ from {
     opacity: 0;
     filter: blur(4px);
     translate: 0 4px;
   }
 
-  to {
+ to {
     opacity: 1;
     filter: blur(0);
     translate: 0 0;
@@ -240,14 +270,14 @@ body {
   opacity: var(--muted);
 }
 
-/* --- github activity island --- */
+/* github activity island ---------------------------------------------------- */
 
 .activity-grid {
   display: grid;
   grid-auto-flow: column;
   grid-template-rows: repeat(7, 1fr);
   grid-auto-columns: 1fr;
-  gap: 2px;
+  gap: 0.125rem;
 }
 
 .activity-cell {
@@ -262,19 +292,19 @@ body {
 }
 
 .activity-level-1 {
-  --activity-level: color-mix(in srgb, #39d353 30%, transparent);
+  --activity-level: color-mix(in srgb, var(--accent) 28%, transparent);
 }
 
 .activity-level-2 {
-  --activity-level: color-mix(in srgb, #39d353 50%, transparent);
+  --activity-level: color-mix(in srgb, var(--accent) 50%, transparent);
 }
 
 .activity-level-3 {
-  --activity-level: color-mix(in srgb, #39d353 75%, transparent);
+  --activity-level: color-mix(in srgb, var(--accent) 75%, transparent);
 }
 
 .activity-level-4 {
-  --activity-level: #39d353;
+  --activity-level: var(--accent);
 }
 
 .activity-legend {
@@ -310,8 +340,9 @@ body {
   z-index: 1;
   padding: 0.3em 0.5em;
   border-radius: var(--radius-s);
-  background: #1c1c1c;
-  color: #eee;
+  background: var(--raised);
+  color: var(--text);
+  border: 1px solid var(--hairline);
   font-size: var(--text-xs);
   white-space: nowrap;
   pointer-events: none;
@@ -325,16 +356,28 @@ body {
   transition-timing-function: var(--ease);
 }
 
+.activity-grid .activity-cell[data-day]:nth-child(-n + 105)::after {
+  left: 0;
+  transform: none;
+}
+
+.activity-grid .activity-cell[data-day]:nth-last-child(-n + 105)::after {
+  left: auto;
+  right: 0;
+  transform: none;
+}
+
 .activity-cell[data-day]:hover::after {
   opacity: 1;
   filter: blur(0);
   translate: 0 0;
 }
 
-/* --- featured work --- */
+/* featured work ------------------------------------------------------------- */
 
 .work {
-  --work-row: 4.2rem;
+  --work-row: 3.4rem;
+  --work-panel: 18rem;
   position: relative;
 }
 
@@ -342,7 +385,6 @@ body {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-width: 24rem;
 }
 
 .work-item {
@@ -357,19 +399,7 @@ body {
   height: 100%;
   text-decoration: none;
   color: inherit;
-  border-bottom: 1px solid var(--hairline);
-  transition-property: opacity;
-  transition-duration: var(--medium);
-  transition-timing-function: var(--ease);
-}
-
-.work-list:hover .work-link {
-  opacity: var(--faint);
-}
-
-.work-list .work-link:hover,
-.work-list .work-link:focus-visible {
-  opacity: 1;
+  min-width: 0;
 }
 
 .work-name {
@@ -384,8 +414,8 @@ body {
 .work-preview {
   position: absolute;
   top: 0;
-  left: 26rem;
-  width: 20rem;
+  right: 0;
+  width: min(var(--work-panel), 55%);
   aspect-ratio: 16 / 10;
   border-radius: var(--radius-m);
   overflow: hidden;
@@ -396,7 +426,7 @@ body {
 
   opacity: 0;
   filter: blur(4px);
-  translate: -6px 0;
+  translate: 6px 0;
 
   transition-property: transform, translate, opacity, filter;
   transition-duration: 0.5s, 0.4s, 0.35s, 0.35s;
@@ -422,17 +452,30 @@ body {
   opacity: 1;
 }
 
-@media (max-width: 52rem) {
-  .work-preview {
+@media (hover: none) {
+ .work-preview {
     display: none;
-  }
-
-  .work-list {
-    max-width: none;
   }
 }
 
-/* --- socials --- */
+.work-link,
+.entry {
+  border-radius: var(--radius-s);
+  padding-inline: var(--space-xs);
+  margin-inline: calc(var(--space-xs) * -1);
+  transition-property: background-color;
+  transition-duration: var(--fast);
+  transition-timing-function: var(--ease);
+}
+
+.work-link:hover,
+.work-link:focus-visible,
+.entry:hover,
+.entry:focus-visible {
+  background-color: var(--surface);
+}
+
+/* socials ------------------------------------------------------------------- */
 
 .socials {
   display: flex;
@@ -463,35 +506,11 @@ body {
   display: block;
 }
 
-/* --- writing --- */
+/* writing ------------------------------------------------------------------- */
 
 .entries {
   list-style: none;
-  margin: 0;
   padding: 0;
-}
-
-.entry {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-m);
-  padding: var(--space-xs) 0;
-  color: inherit;
-  text-decoration: none;
-  border-bottom: 1px solid var(--hairline);
-  transition-property: opacity;
-  transition-duration: var(--fast);
-  transition-timing-function: var(--ease);
-}
-
-.entries:hover .entry {
-  opacity: var(--faint);
-}
-
-.entries .entry:hover,
-.entries .entry:focus-visible {
-  opacity: 1;
 }
 
 .entry-date {
@@ -511,19 +530,23 @@ body {
   opacity: var(--muted);
 }
 
-.post h2 {
-  margin-top: var(--space-l);
-}
-
 .post pre {
   padding: var(--space-s) var(--space-m);
-  border-radius: 6px;
+  border-radius: var(--radius-m);
   overflow-x: auto;
-  background: var(--surface);
+  background: var(--stone);
+  border: 1px solid var(--hairline);
 }
 
 .post code {
   font-size: 0.85em;
+}
+
+.post :not(pre) > code {
+  padding: 0.1em 0.3em;
+  border-radius: var(--radius-s);
+  background: var(--stone);
+  border: 1px solid var(--hairline);
 }
 
 .post blockquote {
@@ -537,7 +560,7 @@ body {
   max-width: 100%;
 }
 
-/* --- archive --- */
+/* archive ------------------------------------------------------------------- */
 
 .archive-controls {
   display: flex;
@@ -610,13 +633,15 @@ button.tag:hover {
   opacity: var(--muted);
 }
 
-/* --- entries --- */
+/* entries ------------------------------------------------------------------- */
 
 .entry {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  align-items: stretch;
+  gap: var(--space-3xs);
+  padding-block: var(--space-xs);
+  color: inherit;
+  text-decoration: none;
 }
 
 .entry-head {
@@ -664,7 +689,7 @@ button.tag:hover {
   margin-top: var(--space-s);
 }
 
-/* --- footer --- */
+/* footer -------------------------------------------------------------------- */
 
 .footer {
   display: flex;
@@ -684,18 +709,7 @@ button.tag:hover {
   gap: 0.9rem;
 }
 
-.footer a {
-  color: inherit;
-  text-decoration: none;
-  border-bottom: 1px solid var(--hairline-strong);
-}
-
-.footer a:hover,
-.footer a:focus-visible {
-  border-bottom-color: currentColor;
-}
-
-/* --- age --- */
+/* age ----------------------------------------------------------------------- */
 
 .age {
   font-variant-numeric: tabular-nums;
@@ -721,11 +735,11 @@ button.tag:hover {
 }
 
 @keyframes digit-roll {
-  from {
+ from {
     translate: 0 -1em;
   }
 
-  to {
+ to {
     translate: 0 0;
   }
 }
@@ -741,7 +755,7 @@ button.tag:hover {
   vertical-align: baseline;
 }
 
-/* --- flag --- */
+/* flag ---------------------------------------------------------------------- */
 
 .flag {
   display: inline-block;
@@ -750,32 +764,75 @@ button.tag:hover {
   vertical-align: -0.12em;
 }
 
-/* --- small screens ------------------------------------------------------- */
+/* small screens ------------------------------------------------------------- */
 
 @media (max-width: 36rem) {
-  .activity {
+ .activity-grid {
     overflow-x: auto;
+    grid-auto-columns: var(--cell-min);
     padding-bottom: var(--space-2xs);
     scrollbar-width: thin;
   }
 
-  .activity-grid {
-    grid-auto-columns: var(--cell-min);
-    width: max-content;
-  }
-
-  .activity-legend {
+ .activity-legend {
     justify-content: flex-start;
   }
 }
 
 @media (max-width: 36rem),
 (hover: none) {
-  .activity-cell[data-day]::after {
+ .activity-cell[data-day]::after {
     content: none;
   }
 
-  .activity-cell[data-day] {
+ .activity-cell[data-day] {
     cursor: default;
   }
+}
+
+/* accents ------------------------------------------------------------------- */
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--text);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+a {
+  color: inherit;
+}
+
+.post a,
+.footer a {
+  color: var(--accent);
+  text-decoration: none;
+  padding-bottom: 0.15em;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: left 100%;
+  background-size: 0 var(--rule);
+  transition-property: background-size;
+  transition-duration: var(--sweep);
+  transition-timing-function: var(--settle);
+}
+
+.post a:hover,
+.post a:focus-visible,
+.footer a:hover,
+.footer a:focus-visible {
+  background-size: 100% var(--rule);
+}
+
+.entry:hover .entry-title,
+.work-link:hover .work-name {
+  color: var(--accent);
+}
+
+.tag.is-active {
+  color: var(--accent);
+  border-color: var(--accent);
 }
