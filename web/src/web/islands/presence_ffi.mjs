@@ -1,3 +1,11 @@
+// A socket that is still CONNECTING can be collected when nothing holds a
+// reference to it: the object and its listener closures point only at each
+// other, so the cycle has no root. Gleam is not handed the socket until `open`
+// fires, which is exactly that window — the handshake never finishes and no
+// message ever arrives. Engines differ on how tolerant they are here, so the
+// socket is rooted for its whole lifetime rather than left to chance.
+const connections = new Set();
+
 export function connect(url, on_open, on_message, on_close) {
   let socket;
 
@@ -8,12 +16,18 @@ export function connect(url, on_open, on_message, on_close) {
     return undefined;
   }
 
+  connections.add(socket);
+
   socket.addEventListener("open", () => on_open(socket));
   socket.addEventListener("message", (event) => {
     if (typeof event.data === "string") on_message(event.data);
   });
 
-  socket.addEventListener("close", () => on_close());
+  // An `error` event is always followed by `close`, so one handler covers both.
+  socket.addEventListener("close", () => {
+    connections.delete(socket);
+    on_close();
+  });
 
   return undefined;
 }

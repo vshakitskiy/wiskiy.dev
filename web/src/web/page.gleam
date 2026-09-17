@@ -4,18 +4,21 @@ import lustre/element/html
 import web/islands/activity
 import web/islands/guestbook
 import web/islands/presence
+import web/islands/work
 import web/layout.{Island}
+import web/socials
 
 // TODO: any webrings??? 
 
 pub fn home() -> Element(Nil) {
   let #(presence_model, _presence_effect) = presence.init(Nil)
   let #(activity_model, _activity_effect) = activity.init(Nil)
+  let #(work_model, _work_effect) = work.init(Nil)
 
   layout.page(
     title: "Home",
     description: "software engineer & gleam enthusiast",
-    islands: [Island("presence"), Island("activity")],
+    islands: [Island("presence"), Island("activity"), Island("work")],
     body: [
       html.section([], [
         html.div([attribute.id(presence.mount_id)], [
@@ -23,9 +26,7 @@ pub fn home() -> Element(Nil) {
           |> layout.strip_message,
         ]),
         html.p([], [html.text("software engineer & gleam enthusiast")]),
-        html.ul([], [
-          // TODO: github, tangled, discord and telegram links
-        ]),
+        socials.view(),
       ]),
       html.section([], [
         html.p([], [
@@ -39,8 +40,9 @@ pub fn home() -> Element(Nil) {
         html.p([], [
           html.text("Things I've worked on that deserves some acknowledgement!"),
         ]),
-        html.ul([], [
-          // TODO: featured work, on hover show some image preview..?
+        html.div([attribute.id(work.mount_id)], [
+          work.view(work_model)
+          |> layout.strip_message,
         ]),
         html.div([attribute.id(activity.mount_id)], [
           activity.view(activity_model)

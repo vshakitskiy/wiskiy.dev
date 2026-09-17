@@ -16,6 +16,7 @@ import lustre/attribute as attr
 import lustre/effect.{type Effect}
 import lustre/element.{type Element}
 import lustre/element/html
+import lustre/element/keyed
 
 pub const mount_id = "presence"
 
@@ -28,6 +29,8 @@ const socket_url = "wss://api.lanyard.rest/socket"
 const reconnect_delay_milliseconds = 5000
 
 const tick_interval_milliseconds = 1000
+
+const track_exit_milliseconds = 400
 
 const listening_activity = 2
 
@@ -68,7 +71,18 @@ pub type Status {
 
 pub type Listening {
   Nothing
-  Track(title: String, artist: String, artwork: Option(String), timing: Timing)
+  Track(
+    title: String,
+    artist: String,
+    artwork: Option(String),
+    timing: Timing,
+    playback: Playback,
+  )
+}
+
+pub type Playback {
+  Playing
+  Ending
 }
 
 pub type Timing {
@@ -96,6 +110,7 @@ pub type Message {
   SocketClosed
   ReconnectDelayElapsed
   Ticked(now_milliseconds: Int)
+  TrackEnded
 }
 
 pub fn update(model: Model, message: Message) -> #(Model, Effect(Message)) {
@@ -114,8 +129,9 @@ pub fn update(model: Model, message: Message) -> #(Model, Effect(Message)) {
           start_heartbeat(model.connection, heartbeat_interval),
         )
         Ok(PresenceReceived(presence:)) -> {
+          let #(presence, exit) = settle(model.presence, presence)
           let model = Model(..model, presence:)
-          #(model, start_clock(model))
+          #(model, effect.batch([start_clock(model), exit]))
         }
       }
 
@@ -128,6 +144,15 @@ pub fn update(model: Model, message: Message) -> #(Model, Effect(Message)) {
       Model(..model, connection: Connecting),
       open_socket(),
     )
+
+    TrackEnded ->
+      case model.presence {
+        Unknown -> #(model, effect.none())
+        Known(status:, listening: _finished) -> #(
+          Model(..model, presence: Known(status:, listening: Nothing)),
+          effect.none(),
+        )
+      }
 
     Ticked(now_milliseconds:) ->
       case timing_of(model.presence) {
@@ -145,6 +170,25 @@ fn timing_of(presence: Presence) -> Timing {
     Unknown -> Untimed
     Known(listening: Nothing, ..) -> Untimed
     Known(listening: Track(timing:, ..), ..) -> timing
+  }
+}
+
+fn settle(previous: Presence, next: Presence) -> #(Presence, Effect(Message)) {
+  case previous, next {
+    Known(
+      listening: Track(title:, artist:, artwork:, timing:, playback: Playing),
+      ..,
+    ),
+      Known(status:, listening: Nothing)
+    -> #(
+      Known(
+        status:,
+        listening: Track(title:, artist:, artwork:, timing:, playback: Ending),
+      ),
+      end_track_after(track_exit_milliseconds),
+    )
+
+    _earlier, _later -> #(next, effect.none())
   }
 }
 
@@ -193,6 +237,12 @@ fn tick_after(milliseconds: Int) -> Effect(Message) {
   use dispatch <- effect.from
   use now <- tick(milliseconds:)
   dispatch(Ticked(now_milliseconds: now))
+}
+
+fn end_track_after(milliseconds: Int) -> Effect(Message) {
+  use dispatch <- effect.from
+  use <- after(milliseconds:)
+  dispatch(TrackEnded)
 }
 
 fn reconnect_after(milliseconds: Int) -> Effect(Message) {
@@ -329,10 +379,19 @@ fn artwork_url(asset: String) -> Option(String) {
         Ok(#(_hash, remainder)) ->
           case string.split_once(remainder, "/") {
             Error(Nil) -> None
-            Ok(#(scheme, url)) -> Some(scheme <> "://" <> url)
+            Ok(#(scheme, url)) -> safe_url(scheme <> "://" <> url)
           }
       }
     _other -> None
+  }
+}
+
+fn safe_url(url: String) -> Option(String) {
+  let unsafe = ["\"", "'", "(", ")", "\\", " ", "\n", "\r", "\t"]
+
+  case list.any(unsafe, string.contains(url, _)) {
+    True -> None
+    False -> Some(url)
   }
 }
 
@@ -360,7 +419,13 @@ fn now_listening(activities: List(Activity)) -> Listening {
     Error(Nil) -> Nothing
     Ok(Activity(details: None, ..)) -> Nothing
     Ok(Activity(details: Some(title), state:, name:, artwork:, timing:, ..)) ->
-      Track(title:, artist: option.unwrap(state, name), artwork:, timing:)
+      Track(
+        title:,
+        artist: option.unwrap(state, name),
+        artwork:,
+        timing:,
+        playback: Playing,
+      )
   }
 }
 
@@ -368,17 +433,25 @@ fn now_listening(activities: List(Activity)) -> Listening {
 
 pub fn view(model: Model) -> Element(Message) {
   let children = case model.presence {
-    Unknown -> [name_view([])]
+    Unknown -> [#("name", name_view([]))]
 
-    Known(status:, listening: Nothing) -> [name_view([status_view(status)])]
+    Known(status:, listening: Nothing) -> [
+      #("name", name_view([status_view(status)])),
+    ]
 
-    Known(status:, listening: Track(title:, artist:, artwork:, timing:)) -> [
-      track_view(title, artist, artwork, timing, model.clock),
-      name_view([status_view(status)]),
+    Known(
+      status:,
+      listening: Track(title:, artist:, artwork:, timing:, playback:),
+    ) -> [
+      #(
+        "track",
+        track_view(title, artist, artwork, timing, playback, model.clock),
+      ),
+      #("name", name_view([status_view(status)])),
     ]
   }
 
-  html.div([attr.class("presence")], children)
+  keyed.div([attr.class("presence")], children)
 }
 
 fn name_view(after_name: List(Element(a))) -> Element(a) {
@@ -420,9 +493,15 @@ fn track_view(
   artist: String,
   artwork: Option(String),
   timing: Timing,
+  playback: Playback,
   clock: Clock,
 ) -> Element(a) {
-  html.div([attr.class("presence-track")], [
+  let classes = case playback {
+    Playing -> "presence-track"
+    Ending -> "presence-track is-ending"
+  }
+
+  html.div([attr.class(classes)], [
     artwork_view(artwork, title),
     html.div([attr.class("presence-track-text")], [
       html.span([attr.class("presence-track-title")], [html.text(title)]),
@@ -436,12 +515,15 @@ fn artwork_view(artwork: Option(String), title: String) -> Element(a) {
   case artwork {
     None -> element.none()
     Some(url) ->
-      html.img([
-        attr.class("presence-track-artwork"),
-        attr.src(url),
-        attr.alt("Artwork for " <> title),
-        attr.attribute("loading", "lazy"),
-      ])
+      html.div(
+        [
+          attr.class("presence-track-artwork"),
+          attr.attribute("role", "img"),
+          attr.attribute("aria-label", "Artwork for " <> title),
+          attr.style("background-image", "url(\"" <> url <> "\")"),
+        ],
+        [],
+      )
   }
 }
 

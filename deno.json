@@ -1,0 +1,5 @@
+{
+  "tasks": {
+    "previews": "deno run --allow-read --allow-write --allow-net=api.microlink.io scripts/fetch_previews.ts"
+  }
+}
