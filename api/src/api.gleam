@@ -30,7 +30,7 @@ pub fn start(
     |> wisp_ewe.handler(secret_key_base)
     |> ewe.new(listener_name, connection_factory_name, _)
     |> ewe.listening(on: context.port)
-    |> ewe.bind(to: "0.0.0.0")
+    |> ewe.bind(to: "::")
 
   supervisor.new(supervisor.OneForOne)
   |> add_activity(context.activity)

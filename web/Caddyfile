@@ -1,0 +1,25 @@
+{
+	auto_https off
+	admin off
+}
+
+:{$PORT:8080} {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy {$API_HOST}:{$API_PORT}
+	}
+
+	handle {
+		root * /srv
+		header /fonts/* Cache-Control "public, max-age=31536000, immutable"
+		try_files {path}.html {path}
+		file_server
+	}
+
+	handle_errors 404 {
+		root * /srv
+		rewrite * /not_found.html
+		file_server
+	}
+}
