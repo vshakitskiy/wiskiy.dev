@@ -1,0 +1,6 @@
+.git
+.jj
+.envrc
+overrides.env
+**/build
+web/dist
