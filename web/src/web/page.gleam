@@ -1,7 +1,9 @@
 import gleam/float
+import gleam/int
 import gleam/list
+import gleam/result
 import lustre/attribute
-import lustre/element.{type Element}
+import lustre/element
 import lustre/element/html
 import lustre/element/svg
 import web/date
@@ -11,13 +13,13 @@ import web/islands/archive
 import web/islands/guestbook
 import web/islands/presence
 import web/islands/work
-import web/layout.{Island}
+import web/layout
 import web/socials
-import web/writing.{type Post}
+import web/writing
 
 // TODO: any webrings??? 
 
-pub fn home(posts: List(Post)) -> Element(Nil) {
+pub fn home(posts: List(writing.Post)) -> element.Element(Nil) {
   let #(presence_model, _presence_effect) = presence.init(Nil)
   let #(activity_model, _activity_effect) = activity.init(Nil)
   let #(work_model, _work_effect) = work.init(Nil)
@@ -27,10 +29,10 @@ pub fn home(posts: List(Post)) -> Element(Nil) {
     title: "Home",
     description: "software engineer & gleam enthusiast",
     islands: [
-      Island("presence"),
-      Island("activity"),
-      Island("work"),
-      Island("age"),
+      layout.Island("presence"),
+      layout.Island("activity"),
+      layout.Island("work"),
+      layout.Island("age"),
     ],
     body: [
       html.section([], [
@@ -77,13 +79,13 @@ pub fn home(posts: List(Post)) -> Element(Nil) {
   )
 }
 
-pub fn guestbook() -> Element(Nil) {
+pub fn guestbook() -> element.Element(Nil) {
   let #(model, _effect) = guestbook.init(Nil)
 
   layout.page(
     title: "Guestbook",
     description: "Leave a message.",
-    islands: [Island("guestbook")],
+    islands: [layout.Island("guestbook")],
     body: [
       html.h1([], [html.text("Guestbook")]),
       html.section([attribute.id(guestbook.mount_id)], [
@@ -94,24 +96,83 @@ pub fn guestbook() -> Element(Nil) {
   )
 }
 
-pub fn not_found() -> Element(Nil) {
+pub fn not_found(posts: List(writing.Post)) -> element.Element(Nil) {
   layout.page(
     title: "Not found",
-    description: "There's nothing here.",
+    description: "There's nothing here!",
     islands: [],
-    body: [html.h1([], [html.text("404")])],
+    body: [
+      html.a([attribute.class("back"), attribute.href("/")], [
+        html.text("← home"),
+      ]),
+      html.section([attribute.class("lost")], [
+        html.h1(
+          [
+            attribute.class("lost-code"),
+            attribute.attribute("aria-label", "404, page not found"),
+          ],
+          [
+            reel(4, spins: 14, duration: "1.1s"),
+            reel(0, spins: 18, duration: "1.4s"),
+            reel(4, spins: 22, duration: "1.7s"),
+          ],
+        ),
+        html.p([attribute.class("lost-text")], [
+          html.text("You may be lost, this page doesn't exist!"),
+        ]),
+      ]),
+      case posts {
+        [] -> element.none()
+        posts ->
+          html.section([], [
+            html.h2([], [html.text("Maybe you seek for one of these?")]),
+            entries(list.take(posts, recent_articles)),
+          ])
+      },
+    ],
+  )
+}
+
+fn reel(
+  digit: Int,
+  spins spins: Int,
+  duration duration: String,
+) -> element.Element(Nil) {
+  let cells =
+    list.repeat(Nil, spins)
+    |> list.index_map(fn(_cell, offset) {
+      let shown = int.modulo(digit - offset, 10) |> result.unwrap(digit)
+      html.span([attribute.class("lost-cell")], [
+        html.text(int.to_string(shown)),
+      ])
+    })
+
+  html.span(
+    [attribute.class("lost-reel"), attribute.attribute("aria-hidden", "true")],
+    [
+      html.span(
+        [
+          attribute.class("lost-strip"),
+          attribute.styles([
+            #("--from", "-" <> int.to_string(spins - 1) <> "em"),
+            #("--spin", duration),
+          ]),
+        ],
+        cells,
+      ),
+    ],
   )
 }
 
 // WRITING ---------------------------------------------------------------------
 
-pub fn writing(posts: List(Post)) -> Element(Nil) {
+pub fn writing(posts: List(writing.Post)) -> element.Element(Nil) {
   let model = archive.from_entries(list.map(posts, to_entry))
 
   layout.page(
     title: "Writing",
     description: "Things I've written down.",
-    islands: [Island("archive")],
+    islands: [layout.Island("archive")],
     body: [
       html.a([attribute.class("back"), attribute.href("/")], [
         html.text("← home"),
@@ -132,7 +193,7 @@ pub fn writing(posts: List(Post)) -> Element(Nil) {
   )
 }
 
-fn to_entry(post: Post) -> archive.Entry {
+fn to_entry(post: writing.Post) -> archive.Entry {
   archive.Entry(
     path: writing.path(post),
     title: post.title,
@@ -142,11 +203,11 @@ fn to_entry(post: Post) -> archive.Entry {
   )
 }
 
-pub fn post(post: Post) -> Element(Nil) {
+pub fn post(post: writing.Post) -> element.Element(Nil) {
   layout.page(
     title: post.title,
     description: post.description,
-    islands: list.map(post.islands, Island),
+    islands: list.map(post.islands, layout.Island),
     body: [
       html.a([attribute.class("back"), attribute.href("/writing.html")], [
         html.text("← writing"),
@@ -164,17 +225,29 @@ pub fn post(post: Post) -> Element(Nil) {
         ]),
         ..writing.render(post)
       ]),
+      ..highlighting(post)
     ],
   )
 }
 
+fn highlighting(post: writing.Post) -> List(element.Element(Nil)) {
+  case writing.has_code(post) {
+    False -> []
+    True -> [
+      html.script([attribute.src("/vendor/highlight.min.js")], ""),
+      html.script([attribute.src("/vendor/gleam.min.js")], ""),
+      html.script([], "hljs.highlightAll();"),
+    ]
+  }
+}
+
 const recent_articles = 4
 
-fn entries(posts: List(Post)) -> Element(Nil) {
+fn entries(posts: List(writing.Post)) -> element.Element(Nil) {
   html.ul([attribute.class("entries")], list.map(posts, entry))
 }
 
-fn entry(post: Post) -> Element(Nil) {
+fn entry(post: writing.Post) -> element.Element(Nil) {
   html.li([], [
     html.a([attribute.class("entry"), attribute.href(writing.path(post))], [
       html.span([attribute.class("entry-head")], [
@@ -190,7 +263,7 @@ fn entry(post: Post) -> Element(Nil) {
   ])
 }
 
-fn tag_list(tags: List(String)) -> Element(Nil) {
+fn tag_list(tags: List(String)) -> element.Element(Nil) {
   case tags {
     [] -> element.none()
     tags ->
@@ -203,7 +276,7 @@ fn tag_list(tags: List(String)) -> Element(Nil) {
   }
 }
 
-fn flag() -> Element(Nil) {
+fn flag() -> element.Element(Nil) {
   svg.svg(
     [
       attribute.class("flag"),
@@ -228,7 +301,7 @@ fn flag() -> Element(Nil) {
 
 const flag_clip = "flag-corners"
 
-fn band(top: Float, colour: String) -> Element(Nil) {
+fn band(top: Float, colour: String) -> element.Element(Nil) {
   svg.rect([
     attribute.attribute("x", "0"),
     attribute.attribute("y", float.to_string(top)),
@@ -244,7 +317,7 @@ fn rounded(
   width width: Float,
   height height: Float,
   radius radius: Float,
-) -> Element(Nil) {
+) -> element.Element(Nil) {
   svg.rect([
     attribute.attribute("x", float.to_string(x)),
     attribute.attribute("y", float.to_string(y)),

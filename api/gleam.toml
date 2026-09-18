@@ -1,6 +1,9 @@
 name = "api"
 version = "1.0.0"
 
+[erlang]
+application_start_module = "api"
+
 [dependencies]
 gleam_stdlib = ">= 1.0.0 and < 2.0.0"
 wisp = { git = "https://github.com/gleam-wisp/wisp.git", ref = "main" }

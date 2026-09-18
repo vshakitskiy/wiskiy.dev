@@ -1,13 +1,23 @@
 import api/activity
 import api/web
 import ewe
+import gleam/erlang/application
 import gleam/erlang/process
 import gleam/http
+import gleam/otp/actor
 import gleam/otp/static_supervisor as supervisor
+import gleam/result
 import wisp
 import wisp/wisp_ewe
 
 pub fn main() -> Nil {
+  process.sleep_forever()
+}
+
+pub fn start(
+  _start_type: application.StartType,
+  _start_arguments: List(Nil),
+) -> Result(process.Pid, actor.StartError) {
   wisp.configure_logger()
 
   let context = web.create_context()
@@ -22,13 +32,15 @@ pub fn main() -> Nil {
     |> ewe.listening(on: context.port)
     |> ewe.bind(to: "0.0.0.0")
 
-  let assert Ok(_) =
-    supervisor.new(supervisor.OneForOne)
-    |> add_activity(context.activity)
-    |> supervisor.add(ewe.supervised(server))
-    |> supervisor.start
+  supervisor.new(supervisor.OneForOne)
+  |> add_activity(context.activity)
+  |> supervisor.add(ewe.supervised(server))
+  |> supervisor.start
+  |> result.map(fn(started) { started.pid })
+}
 
-  process.sleep_forever()
+pub fn stop(_state: Nil) -> Nil {
+  Nil
 }
 
 fn add_activity(

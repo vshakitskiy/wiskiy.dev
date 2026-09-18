@@ -3,9 +3,9 @@
 import gleam/int
 import gleam/list
 import lustre
-import lustre/attribute as attr
-import lustre/effect.{type Effect}
-import lustre/element.{type Element}
+import lustre/attribute
+import lustre/effect
+import lustre/element
 import lustre/element/html
 import lustre/event
 
@@ -52,7 +52,7 @@ pub type Preview {
   Shown(at: Int)
 }
 
-pub fn init(_flags: Nil) -> #(Model, Effect(Message)) {
+pub fn init(_flags: Nil) -> #(Model, effect.Effect(Message)) {
   #(Model(preview: Hidden(at: 0)), effect.none())
 }
 
@@ -63,7 +63,10 @@ pub type Message {
   ListLeft
 }
 
-pub fn update(model: Model, message: Message) -> #(Model, Effect(Message)) {
+pub fn update(
+  model: Model,
+  message: Message,
+) -> #(Model, effect.Effect(Message)) {
   let preview = case message {
     ProjectEntered(index:) -> Shown(at: index)
     ListLeft -> Hidden(at: row_of(model.preview))
@@ -85,32 +88,32 @@ type Visibility {
   Faded
 }
 
-pub fn view(model: Model) -> Element(Message) {
+pub fn view(model: Model) -> element.Element(Message) {
   let parked = row_of(model.preview)
 
-  html.div([attr.class("work")], [
+  html.div([attribute.class("work")], [
     html.ul(
-      [attr.class("work-list"), event.on_mouse_leave(ListLeft)],
+      [attribute.class("work-list"), event.on_mouse_leave(ListLeft)],
       list.index_map(projects, row),
     ),
     preview(model.preview, parked),
   ])
 }
 
-fn row(project: Project, index: Int) -> Element(Message) {
-  html.li([attr.class("work-item")], [
+fn row(project: Project, index: Int) -> element.Element(Message) {
+  html.li([attribute.class("work-item")], [
     html.a(
       [
-        attr.class("work-link"),
-        attr.href(project.url),
-        attr.target("_blank"),
-        attr.rel("noopener noreferrer"),
+        attribute.class("work-link"),
+        attribute.href(project.url),
+        attribute.target("_blank"),
+        attribute.rel("noopener noreferrer"),
         event.on_mouse_enter(ProjectEntered(index:)),
         event.on_focus(ProjectEntered(index:)),
       ],
       [
-        html.span([attr.class("work-name")], [html.text(project.name)]),
-        html.span([attr.class("work-description")], [
+        html.span([attribute.class("work-name")], [html.text(project.name)]),
+        html.span([attribute.class("work-description")], [
           html.text(project.description),
         ]),
       ],
@@ -118,7 +121,7 @@ fn row(project: Project, index: Int) -> Element(Message) {
   ])
 }
 
-fn preview(state: Preview, parked: Int) -> Element(Message) {
+fn preview(state: Preview, parked: Int) -> element.Element(Message) {
   let visibility = case state {
     Shown(at: _shown_row) -> Showing
     Hidden(at: _hidden_row) -> Faded
@@ -126,9 +129,9 @@ fn preview(state: Preview, parked: Int) -> Element(Message) {
 
   html.div(
     [
-      attr.class("work-preview " <> class_for(visibility)),
-      attr.attribute("aria-hidden", "true"),
-      attr.style(
+      attribute.class("work-preview " <> class_for(visibility)),
+      attribute.attribute("aria-hidden", "true"),
+      attribute.style(
         "transform",
         "translateY(calc(var(--work-row) * " <> int.to_string(parked) <> "))",
       ),
@@ -142,27 +145,27 @@ fn preview(state: Preview, parked: Int) -> Element(Message) {
   )
 }
 
-fn media(project: Project, visibility: Visibility) -> Element(Message) {
+fn media(project: Project, visibility: Visibility) -> element.Element(Message) {
   let classes = "work-media " <> class_for(visibility)
 
   case project.media {
     Image(source:) ->
       html.img([
-        attr.class(classes),
-        attr.src(source),
-        attr.alt(project.name),
-        attr.attribute("loading", "lazy"),
+        attribute.class(classes),
+        attribute.src(source),
+        attribute.alt(project.name),
+        attribute.attribute("loading", "lazy"),
       ])
 
     Video(source:) ->
       html.video(
         [
-          attr.class(classes),
-          attr.src(source),
-          attr.attribute("autoplay", ""),
-          attr.attribute("muted", ""),
-          attr.attribute("loop", ""),
-          attr.attribute("playsinline", ""),
+          attribute.class(classes),
+          attribute.src(source),
+          attribute.attribute("autoplay", ""),
+          attribute.attribute("muted", ""),
+          attribute.attribute("loop", ""),
+          attribute.attribute("playsinline", ""),
         ],
         [],
       )

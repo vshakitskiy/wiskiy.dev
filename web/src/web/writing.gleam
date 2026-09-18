@@ -322,3 +322,23 @@ fn slugify(text: String) -> String {
 pub fn path(post: Post) -> String {
   "/writing/" <> post.slug <> ".html"
 }
+
+pub fn has_code(post: Post) -> Bool {
+  list.any(post.content.blocks, contains_code)
+}
+
+fn contains_code(block: document.Block) -> Bool {
+  case block {
+    document.Code(..) -> True
+    document.BlockQuote(blocks:) -> list.any(blocks, contains_code)
+    document.BulletList(items:, ..) | document.OrderedList(items:, ..) ->
+      list.any(items, fn(item) { list.any(item.blocks, contains_code) })
+    document.Paragraph(..)
+    | document.Heading(..)
+    | document.ThematicBreak
+    | document.HtmlBlock(..)
+    | document.Table(..)
+    | document.Newline
+    | document.Empty -> False
+  }
+}

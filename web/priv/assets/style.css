@@ -13,11 +13,22 @@
   --stone: color-mix(in srgb, var(--text) 5%, var(--background));
   --muted: 0.6;
 
+  --code-keyword: var(--accent);
+  --code-string: #c3d69e;
+  --code-number: #f2bf87;
+  --code-title: #aebdf0;
+  --code-attribute: #e2b0ef;
+  --code-comment: color-mix(in srgb, var(--text) 50%, transparent);
+
   font-size: clamp(16px, 4px + 1vw, 20px);
+
+  --font-text: "Space Mono", ui-monospace, monospace;
+  --font-code: "Maple Mono", ui-monospace, monospace;
 
   --text-xs: 0.7rem;
   --text-s: 0.8rem;
   --text-m: 0.85rem;
+  --text-display: 6rem;
 
   --space-3xs: 0.15rem;
   --space-2xs: 0.3rem;
@@ -30,6 +41,9 @@
 
   --measure: 42rem;
   --cell-min: 0.5rem;
+  --wave-period: 1.8s;
+  --wave-step: 35ms;
+  --fill-step: 12ms;
 
   --radius-s: 4px;
   --radius-m: 8px;
@@ -45,11 +59,73 @@
 }
 
 
-/* base -------------------------------------------------------------------- */
+/* fonts ------------------------------------------------------------------- */
 
-@view-transition {
-  navigation: auto;
+@font-face {
+  font-family: "Space Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/space-mono/space-mono-regular.woff2") format("woff2");
 }
+
+@font-face {
+  font-family: "Space Mono";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/space-mono/space-mono-italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Space Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/space-mono/space-mono-bold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Space Mono";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/space-mono/space-mono-bold-italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Maple Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/maple-mono/maple-mono-regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Maple Mono";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/maple-mono/maple-mono-italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Maple Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/maple-mono/maple-mono-bold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Maple Mono";
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url("/fonts/maple-mono/maple-mono-bold-italic.woff2") format("woff2");
+}
+
+/* base -------------------------------------------------------------------- */
 
 body {
   background: var(--background);
@@ -57,7 +133,7 @@ body {
   max-width: var(--measure);
   margin: 0 auto;
   padding: var(--space-top) var(--space-m) var(--space-xl);
-  font-family: system-ui, sans-serif;
+  font-family: var(--font-text);
   line-height: 1.6;
 }
 
@@ -76,26 +152,33 @@ h3 {
   line-height: 1.25;
 }
 
-main > * + *,
-main > section > * + *,
-.post > * + * {
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--font-code);
+}
+
+main>*+*,
+main>section>*+*,
+.post>*+* {
   margin-block-start: var(--space-s);
 }
 
-.post > * + * {
+.post>*+* {
   margin-block-start: var(--space-m);
 }
 
-main > section > h2 + *,
-.post > h2 + * {
+main>section>h2+*,
+.post>h2+* {
   margin-block-start: var(--space-m);
 }
 
-.post > h2 {
+.post>h2 {
   margin-block-start: var(--space-l);
 }
 
-main > section + section {
+main>section+section {
   margin-block-start: var(--space-xl);
 }
 
@@ -125,13 +208,13 @@ body {
 }
 
 @keyframes fall-out {
- from {
+  from {
     opacity: 1;
     filter: blur(0);
     translate: 0 0;
   }
 
- to {
+  to {
     opacity: 0;
     filter: blur(4px);
     translate: 0 4px;
@@ -139,13 +222,13 @@ body {
 }
 
 @keyframes rise-in {
- from {
+  from {
     opacity: 0;
     filter: blur(4px);
     translate: 0 4px;
   }
 
- to {
+  to {
     opacity: 1;
     filter: blur(0);
     translate: 0 0;
@@ -181,17 +264,17 @@ body {
 }
 
 @keyframes ping {
- 0% {
+  0% {
     opacity: 0.55;
     scale: 1;
   }
 
- 35% {
+  35% {
     opacity: 0;
     scale: 3.4;
   }
 
- 100% {
+  100% {
     opacity: 0;
     scale: 3.4;
   }
@@ -326,6 +409,41 @@ body {
   background: var(--activity-level, var(--surface));
 }
 
+.activity-grid.is-loading .activity-cell {
+  animation-name: activity-wave;
+  animation-duration: var(--wave-period);
+  animation-timing-function: ease-in-out;
+  animation-iteration-count: infinite;
+  animation-delay: calc(var(--wave) * var(--wave-step) - var(--wave-period) * 2);
+}
+
+.activity-grid.is-loaded .activity-cell {
+  animation-name: activity-fill;
+  animation-duration: var(--slow);
+  animation-timing-function: var(--settle);
+  animation-fill-mode: backwards;
+  animation-delay: calc(var(--wave) * var(--fill-step));
+}
+
+@keyframes activity-fill {
+  from {
+    background-color: var(--surface);
+    scale: 0.6;
+  }
+}
+
+@keyframes activity-wave {
+
+  0%,
+  100% {
+    background-color: var(--surface);
+  }
+
+  50% {
+    background-color: var(--surface-strong);
+  }
+}
+
 .activity-level-0 {
   --activity-level: var(--surface);
 }
@@ -442,7 +560,7 @@ body {
 }
 
 .work-name {
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .work-description {
@@ -492,7 +610,7 @@ body {
 }
 
 @media (hover: none) {
- .work-preview {
+  .work-preview {
     display: none;
   }
 }
@@ -581,7 +699,7 @@ body {
   font-size: 0.85em;
 }
 
-.post :not(pre) > code {
+.post :not(pre)>code {
   padding: 0.1em 0.3em;
   border-radius: var(--radius-s);
   background: var(--stone);
@@ -774,11 +892,11 @@ button.tag:hover {
 }
 
 @keyframes digit-roll {
- from {
+  from {
     translate: 0 -1em;
   }
 
- to {
+  to {
     translate: 0 0;
   }
 }
@@ -803,28 +921,113 @@ button.tag:hover {
   vertical-align: -0.12em;
 }
 
+/* not found ---------------------------------------------------------------- */
+
+.lost-code {
+  display: flex;
+  font-size: var(--text-display);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.lost-reel {
+  display: inline-block;
+  width: 1ch;
+  height: 1em;
+  overflow: hidden;
+}
+
+.lost-strip {
+  display: block;
+  animation-name: lost-spin;
+  animation-duration: var(--spin);
+  animation-timing-function: var(--settle);
+  animation-fill-mode: both;
+}
+
+@keyframes lost-spin {
+  from {
+    translate: 0 var(--from);
+  }
+}
+
+.lost-cell {
+  display: block;
+  height: 1em;
+}
+
+.lost-text {
+  color: color-mix(in srgb, var(--text) 70%, transparent);
+}
+
+/* syntax ------------------------------------------------------------------- */
+
+.hljs {
+  color: var(--text);
+}
+
+.hljs-keyword,
+.hljs-built_in,
+.hljs-operator {
+  color: var(--code-keyword);
+}
+
+.hljs-string,
+.hljs-regexp {
+  color: var(--code-string);
+}
+
+.hljs-number,
+.hljs-literal {
+  color: var(--code-number);
+}
+
+.hljs-title,
+.hljs-type,
+.hljs-class,
+.hljs-property {
+  color: var(--code-title);
+}
+
+.hljs-attr,
+.hljs-attribute,
+.hljs-meta {
+  color: var(--code-attribute);
+}
+
+.hljs-variable,
+.hljs-params {
+  color: var(--text);
+}
+
+.hljs-comment {
+  color: var(--code-comment);
+  font-style: italic;
+}
+
 /* small screens ------------------------------------------------------------- */
 
 @media (max-width: 36rem) {
- .activity-grid {
+  .activity-grid {
     overflow-x: auto;
     grid-auto-columns: var(--cell-min);
     padding-bottom: var(--space-2xs);
     scrollbar-width: thin;
   }
 
- .activity-legend {
+  .activity-legend {
     justify-content: flex-start;
   }
 }
 
 @media (max-width: 36rem),
 (hover: none) {
- .activity-cell[data-day]::after {
+  .activity-cell[data-day]::after {
     content: none;
   }
 
- .activity-cell[data-day] {
+  .activity-cell[data-day] {
     cursor: default;
   }
 }

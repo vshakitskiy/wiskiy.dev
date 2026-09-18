@@ -227,7 +227,7 @@ The process starts with an *HTTP* handshake request that looks like this:
 
 ```
 GET / HTTP/1.1
-Host: [example.com](http://example.com)
+Host: example.com
 Upgrade: websocket
 Connection: Upgrade
 Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
