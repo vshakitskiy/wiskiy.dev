@@ -2,8 +2,8 @@ import gleam/int
 import gleam/list
 import lustre
 import lustre/attribute as attr
-import lustre/effect.{type Effect}
-import lustre/element.{type Element}
+import lustre/effect
+import lustre/element
 import lustre/element/html
 import lustre/event
 
@@ -24,12 +24,12 @@ pub type Msg {
   UserSubmittedDraft
 }
 
-pub fn init(_flags: Nil) -> #(Model, Effect(Msg)) {
+pub fn init(_flags: Nil) -> #(Model, effect.Effect(Msg)) {
   // TODO: fetch existing entries from the api with rsvp
   #(Model(draft: "", entries: []), effect.none())
 }
 
-pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
+pub fn update(model: Model, msg: Msg) -> #(Model, effect.Effect(Msg)) {
   case msg {
     UserUpdatedDraft(draft) -> #(Model(..model, draft:), effect.none())
 
@@ -45,7 +45,7 @@ pub fn update(model: Model, msg: Msg) -> #(Model, Effect(Msg)) {
   }
 }
 
-pub fn view(model: Model) -> Element(Msg) {
+pub fn view(model: Model) -> element.Element(Msg) {
   html.div([], [
     html.div([], [
       html.input([

@@ -5,11 +5,11 @@ import gleam/int
 import gleam/list
 import gleam/string
 import gleam/time/calendar
-import gleam/time/timestamp.{type Timestamp}
+import gleam/time/timestamp
 import lustre
-import lustre/attribute as attr
-import lustre/effect.{type Effect}
-import lustre/element.{type Element}
+import lustre/attribute
+import lustre/effect
+import lustre/element
 import lustre/element/html
 import lustre/element/keyed
 import web/browser
@@ -38,7 +38,7 @@ pub fn main() -> Nil {
 // MODEL -----------------------------------------------------------------------
 
 pub type Model {
-  Model(now: Timestamp, phase: Phase)
+  Model(now: timestamp.Timestamp, phase: Phase)
 }
 
 pub type Phase {
@@ -46,7 +46,7 @@ pub type Phase {
   Counting
 }
 
-pub fn init(_flags: Nil) -> #(Model, Effect(Message)) {
+pub fn init(_flags: Nil) -> #(Model, effect.Effect(Message)) {
   #(Model(now: timestamp.system_time(), phase: FirstPaint), tick())
 }
 
@@ -56,13 +56,16 @@ pub type Message {
   Ticked
 }
 
-pub fn update(_model: Model, message: Message) -> #(Model, Effect(Message)) {
+pub fn update(
+  _model: Model,
+  message: Message,
+) -> #(Model, effect.Effect(Message)) {
   case message {
     Ticked -> #(Model(now: timestamp.system_time(), phase: Counting), tick())
   }
 }
 
-fn tick() -> Effect(Message) {
+fn tick() -> effect.Effect(Message) {
   use dispatch <- effect.from
   use <- browser.after(milliseconds: tick_interval_milliseconds)
   dispatch(Ticked)
@@ -70,7 +73,7 @@ fn tick() -> Effect(Message) {
 
 // AGE -------------------------------------------------------------------------
 
-pub fn years(now: Timestamp) -> Float {
+pub fn years(now: timestamp.Timestamp) -> Float {
   let born =
     timestamp.from_calendar(
       birthday,
@@ -82,11 +85,11 @@ pub fn years(now: Timestamp) -> Float {
   /. seconds_per_year
 }
 
-pub fn whole(now: Timestamp) -> String {
+pub fn whole(now: timestamp.Timestamp) -> String {
   years(now) |> float.truncate |> int.to_string
 }
 
-pub fn fraction(now: Timestamp) -> String {
+pub fn fraction(now: timestamp.Timestamp) -> String {
   let years = years(now)
   let fraction = years -. int.to_float(float.truncate(years))
   let scale = power(10, decimals)
@@ -107,12 +110,12 @@ fn power(base: Int, exponent: Int) -> Int {
 
 // VIEW ------------------------------------------------------------------------
 
-pub fn view(model: Model) -> Element(Message) {
+pub fn view(model: Model) -> element.Element(Message) {
   html.span(
     [
-      attr.class("age"),
-      attr.attribute("role", "img"),
-      attr.attribute("aria-label", reading(model.now) <> " years old"),
+      attribute.class("age"),
+      attribute.attribute("role", "img"),
+      attribute.attribute("aria-label", reading(model.now) <> " years old"),
     ],
     reading(model.now)
       |> string.to_graphemes
@@ -120,31 +123,35 @@ pub fn view(model: Model) -> Element(Message) {
   )
 }
 
-pub fn reading(now: Timestamp) -> String {
+pub fn reading(now: timestamp.Timestamp) -> String {
   whole(now) <> fraction(now)
 }
 
-fn character(character: String, phase: Phase) -> Element(Message) {
+fn character(character: String, phase: Phase) -> element.Element(Message) {
   case int.parse(character) {
-    Error(Nil) -> html.span([attr.class("age-point")], [html.text(character)])
+    Error(Nil) ->
+      html.span([attribute.class("age-point")], [html.text(character)])
     Ok(digit) -> reel(digit, phase)
   }
 }
 
-fn reel(digit: Int, phase: Phase) -> Element(Message) {
+fn reel(digit: Int, phase: Phase) -> element.Element(Message) {
   let arriving_from = case phase {
     FirstPaint -> digit
     Counting -> outgoing(digit)
   }
 
-  keyed.element("span", [attr.class("digit")], [
+  keyed.element("span", [attribute.class("digit")], [
     #(
       int.to_string(digit),
-      html.span([attr.class("digit-strip")], [cell(digit), cell(arriving_from)]),
+      html.span([attribute.class("digit-strip")], [
+        cell(digit),
+        cell(arriving_from),
+      ]),
     ),
   ])
 }
 
-fn cell(digit: Int) -> Element(Message) {
-  html.span([attr.class("digit-cell")], [html.text(int.to_string(digit))])
+fn cell(digit: Int) -> element.Element(Message) {
+  html.span([attribute.class("digit-cell")], [html.text(int.to_string(digit))])
 }

@@ -3,7 +3,7 @@ import gleam/int
 import gleam/io
 import gleam/list
 import gleam/string
-import lustre/element.{type Element}
+import lustre/element
 import simplifile
 import temporary
 import web/feed
@@ -18,11 +18,6 @@ const writing_dir = "writing"
 
 const writing_out = "writing"
 
-const pages = [
-  #(page.guestbook, "guestbook.html"),
-  #(page.not_found, "not_found.html"),
-]
-
 pub fn main() -> Nil {
   let assert Ok(posts) = writing.parse_posts(writing_dir)
     as "failed to read writing/!"
@@ -30,13 +25,9 @@ pub fn main() -> Nil {
   let assert Ok(Nil) = {
     use dir <- temporary.create(temporary.directory())
 
-    list.each(pages, fn(entry) {
-      let #(view, filename) = entry
-      write_page(dir, view(), filename)
-    })
-
     write_page(dir, page.home(posts), "index.html")
     write_page(dir, page.writing(posts), "writing.html")
+    write_page(dir, page.not_found(posts), "not_found.html")
 
     write_feed(dir, posts)
 
@@ -82,7 +73,7 @@ fn write_feed(directory: String, posts: List(writing.Post)) -> Nil {
 
 fn write_page(
   directory: String,
-  element: Element(Nil),
+  element: element.Element(Nil),
   filename: String,
 ) -> Nil {
   let assert Ok(_) =

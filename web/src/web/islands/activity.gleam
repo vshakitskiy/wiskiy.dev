@@ -7,9 +7,9 @@ import gleam/order
 import gleam/result
 import gleam/time/calendar
 import lustre
-import lustre/attribute as attr
-import lustre/effect.{type Effect}
-import lustre/element.{type Element}
+import lustre/attribute
+import lustre/effect
+import lustre/element
 import lustre/element/html
 import rsvp
 import web/date
@@ -42,7 +42,7 @@ pub type Calendar {
   Unavailable
 }
 
-pub fn init(_flags: Nil) -> #(Model, Effect(Message)) {
+pub fn init(_flags: Nil) -> #(Model, effect.Effect(Message)) {
   #(Model(calendar: Loading), load())
 }
 
@@ -52,7 +52,10 @@ pub type Message {
   CalendarReceived(Result(Calendar, rsvp.Error(String)))
 }
 
-pub fn update(_model: Model, message: Message) -> #(Model, Effect(Message)) {
+pub fn update(
+  _model: Model,
+  message: Message,
+) -> #(Model, effect.Effect(Message)) {
   case message {
     CalendarReceived(Ok(calendar)) -> #(Model(calendar:), effect.none())
     CalendarReceived(Error(_error)) -> #(
@@ -62,7 +65,7 @@ pub fn update(_model: Model, message: Message) -> #(Model, Effect(Message)) {
   }
 }
 
-fn load() -> Effect(Message) {
+fn load() -> effect.Effect(Message) {
   rsvp.get(endpoint, rsvp.expect_json(calendar_decoder(), CalendarReceived))
 }
 
@@ -97,7 +100,7 @@ pub fn slots(counts: List(Int)) -> List(Int) {
 
 // VIEW ------------------------------------------------------------------------
 
-pub fn view(model: Model) -> Element(Message) {
+pub fn view(model: Model) -> element.Element(Message) {
   let #(counts, start) = case model.calendar {
     Loading | Unavailable -> #([], Error(Nil))
     Loaded(counts:, start:, ..) -> #(counts, date.parse(start))
@@ -107,40 +110,58 @@ pub fn view(model: Model) -> Element(Message) {
   let cells = slots(counts)
   let busiest = list.fold(cells, 0, int.max)
 
-  html.div([attr.class("activity")], [
+  html.div([attribute.class("activity")], [
     html.div(
       [
-        attr.class("activity-grid"),
-        attr.attribute("role", "img"),
-        attr.attribute("aria-label", label(model.calendar)),
+        attribute.class(case model.calendar {
+          Loading -> "activity-grid is-loading"
+          Loaded(..) -> "activity-grid is-loaded"
+          Unavailable -> "activity-grid"
+        }),
+        attribute.attribute("role", "img"),
+        attribute.attribute("aria-label", label(model.calendar)),
       ],
       list.index_map(cells, fn(count, index) {
-        cell(count, busiest, case index < reported {
+        let day = case index < reported {
           False -> Error(Nil)
           True -> result.map(start, date.day_at(_, index))
-        })
+        }
+
+        cell(count, busiest, day, wave(model.calendar, index))
       }),
     ),
     legend(),
   ])
 }
 
+fn wave(calendar: Calendar, index: Int) -> List(attribute.Attribute(a)) {
+  case calendar {
+    Loading | Loaded(..) -> {
+      let column = index / days_in_week
+      let row = index % days_in_week
+      [attribute.style("--wave", int.to_string(column + row))]
+    }
+    Unavailable -> []
+  }
+}
+
 fn cell(
   count: Int,
   busiest: Int,
   day: Result(calendar.Date, Nil),
-) -> Element(a) {
+  wave: List(attribute.Attribute(a)),
+) -> element.Element(a) {
   let described = case day {
     Error(Nil) -> []
-    Ok(day) -> [attr.attribute("data-day", describe(count, day))]
+    Ok(day) -> [attribute.attribute("data-day", describe(count, day))]
   }
 
   html.div(
     [
-      attr.class(
+      attribute.class(
         "activity-cell activity-level-" <> int.to_string(level(count, busiest)),
       ),
-      ..described
+      ..list.append(described, wave)
     ],
     [],
   )
@@ -161,17 +182,23 @@ fn describe(count: Int, day: calendar.Date) -> String {
   }
 }
 
-fn legend() -> Element(a) {
-  html.div([attr.class("activity-legend")], [
-    html.span([attr.class("activity-legend-text")], [html.text("less")]),
+fn legend() -> element.Element(a) {
+  html.div([attribute.class("activity-legend")], [
+    html.span([attribute.class("activity-legend-text")], [html.text("less")]),
     ..list.append(
       list.map([0, 1, 2, 3, 4], fn(each) {
         html.div(
-          [attr.class("activity-cell activity-level-" <> int.to_string(each))],
+          [
+            attribute.class(
+              "activity-cell activity-level-" <> int.to_string(each),
+            ),
+          ],
           [],
         )
       }),
-      [html.span([attr.class("activity-legend-text")], [html.text("more")])],
+      [
+        html.span([attribute.class("activity-legend-text")], [html.text("more")]),
+      ],
     )
   ])
 }

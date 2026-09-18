@@ -1,6 +1,6 @@
 import gleam/list
-import lustre/attribute as attr
-import lustre/element.{type Element}
+import lustre/attribute
+import lustre/element
 import lustre/element/html
 import lustre/element/svg
 
@@ -26,27 +26,27 @@ pub const socials = [
   Social(name: "Telegram", url: "https://t.me/vshakitskiy", icon: Telegram),
 ]
 
-pub fn view() -> Element(a) {
-  html.ul([attr.class("socials")], list.map(socials, link))
+pub fn view() -> element.Element(a) {
+  html.ul([attribute.class("socials")], list.map(socials, link))
 }
 
-fn link(social: Social) -> Element(a) {
+fn link(social: Social) -> element.Element(a) {
   html.li([], [
     html.a(
       [
-        attr.class("social-link"),
-        attr.href(social.url),
-        attr.target("_blank"),
-        attr.rel("me noopener noreferrer"),
-        attr.attribute("aria-label", social.name),
-        attr.title(social.name),
+        attribute.class("social-link"),
+        attribute.href(social.url),
+        attribute.target("_blank"),
+        attribute.rel("me noopener noreferrer"),
+        attribute.attribute("aria-label", social.name),
+        attribute.title(social.name),
       ],
       [icon(social.icon)],
     ),
   ])
 }
 
-pub fn icon(icon: Icon) -> Element(a) {
+pub fn icon(icon: Icon) -> element.Element(a) {
   case icon {
     Github ->
       mark(
@@ -71,15 +71,15 @@ pub fn icon(icon: Icon) -> Element(a) {
   }
 }
 
-fn mark(view_box view_box: String, path path: String) -> Element(a) {
+fn mark(view_box view_box: String, path path: String) -> element.Element(a) {
   svg.svg(
     [
-      attr.class("social-icon"),
-      attr.attribute("viewBox", view_box),
-      attr.attribute("fill", "currentColor"),
-      attr.attribute("aria-hidden", "true"),
-      attr.attribute("focusable", "false"),
+      attribute.class("social-icon"),
+      attribute.attribute("viewBox", view_box),
+      attribute.attribute("fill", "currentColor"),
+      attribute.attribute("aria-hidden", "true"),
+      attribute.attribute("focusable", "false"),
     ],
-    [svg.path([attr.attribute("d", path)])],
+    [svg.path([attribute.attribute("d", path)])],
   )
 }

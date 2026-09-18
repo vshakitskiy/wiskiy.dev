@@ -2,10 +2,10 @@
 
 import gleam/list
 import lustre/attribute
-import lustre/element.{type Element, element as tag}
+import lustre/element.{element as tag}
 import lustre/element/html
 import web/date
-import web/writing.{type Post}
+import web/writing
 
 pub const site = "https://wiskiy.dev"
 
@@ -17,7 +17,7 @@ const author = "vshakitskiy@gmail.com"
 
 pub const path = "/feed.xml"
 
-pub fn from_posts(posts: List(Post)) -> Element(a) {
+pub fn from_posts(posts: List(writing.Post)) -> element.Element(a) {
   tag("rss", [attribute.attribute("version", "2.0")], [
     tag("channel", [], [
       tag("title", [], [html.text(title)]),
@@ -29,7 +29,7 @@ pub fn from_posts(posts: List(Post)) -> Element(a) {
   ])
 }
 
-fn published(posts: List(Post)) -> List(Element(a)) {
+fn published(posts: List(writing.Post)) -> List(element.Element(a)) {
   case posts {
     [] -> []
     [newest, ..] -> [
@@ -38,7 +38,7 @@ fn published(posts: List(Post)) -> List(Element(a)) {
   }
 }
 
-fn item(post: Post) -> Element(a) {
+fn item(post: writing.Post) -> element.Element(a) {
   let url = site <> writing.path(post)
 
   tag("item", [], [
@@ -54,6 +54,6 @@ fn item(post: Post) -> Element(a) {
   ])
 }
 
-fn link(url: String) -> Element(a) {
+fn link(url: String) -> element.Element(a) {
   element.unsafe_raw_html("", "link", [], url)
 }

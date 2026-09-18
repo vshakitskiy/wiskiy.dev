@@ -8,13 +8,13 @@ import gleam/dynamic/decode
 import gleam/int
 import gleam/json
 import gleam/list
-import gleam/option.{type Option, None, Some}
+import gleam/option
 import gleam/order
 import gleam/string
 import lustre
-import lustre/attribute as attr
-import lustre/effect.{type Effect}
-import lustre/element.{type Element}
+import lustre/attribute
+import lustre/effect
+import lustre/element
 import lustre/element/html
 import lustre/element/keyed
 import web/browser
@@ -75,7 +75,7 @@ pub type Listening {
   Track(
     title: String,
     artist: String,
-    artwork: Option(String),
+    artwork: option.Option(String),
     timing: Timing,
     playback: Playback,
   )
@@ -96,7 +96,7 @@ pub type Clock {
   Ticking(now_milliseconds: Int)
 }
 
-pub fn init(_flags: Nil) -> #(Model, Effect(Message)) {
+pub fn init(_flags: Nil) -> #(Model, effect.Effect(Message)) {
   #(
     Model(connection: Connecting, presence: Unknown, clock: Paused),
     open_socket(),
@@ -114,7 +114,10 @@ pub type Message {
   TrackEnded
 }
 
-pub fn update(model: Model, message: Message) -> #(Model, Effect(Message)) {
+pub fn update(
+  model: Model,
+  message: Message,
+) -> #(Model, effect.Effect(Message)) {
   case message {
     SocketOpened(socket:) -> #(
       Model(..model, connection: Open(socket)),
@@ -174,7 +177,10 @@ fn timing_of(presence: Presence) -> Timing {
   }
 }
 
-fn settle(previous: Presence, next: Presence) -> #(Presence, Effect(Message)) {
+fn settle(
+  previous: Presence,
+  next: Presence,
+) -> #(Presence, effect.Effect(Message)) {
   case previous, next {
     Known(
       listening: Track(title:, artist:, artwork:, timing:, playback: Playing),
@@ -195,7 +201,7 @@ fn settle(previous: Presence, next: Presence) -> #(Presence, Effect(Message)) {
 
 // EFFECTS ---------------------------------------------------------------------
 
-fn open_socket() -> Effect(Message) {
+fn open_socket() -> effect.Effect(Message) {
   use dispatch <- effect.from
   connect(
     url: socket_url,
@@ -205,7 +211,7 @@ fn open_socket() -> Effect(Message) {
   )
 }
 
-fn subscribe(socket: Socket) -> Effect(Message) {
+fn subscribe(socket: Socket) -> effect.Effect(Message) {
   use _dispatch <- effect.from
   send(socket:, text: initialize_payload())
 }
@@ -213,7 +219,7 @@ fn subscribe(socket: Socket) -> Effect(Message) {
 fn start_heartbeat(
   connection: Connection,
   milliseconds: Int,
-) -> Effect(Message) {
+) -> effect.Effect(Message) {
   case connection {
     Connecting | Closed -> effect.none()
     Open(socket:) -> {
@@ -223,7 +229,7 @@ fn start_heartbeat(
   }
 }
 
-fn start_clock(model: Model) -> Effect(Message) {
+fn start_clock(model: Model) -> effect.Effect(Message) {
   case model.clock {
     Ticking(..) -> effect.none()
     Paused ->
@@ -234,19 +240,19 @@ fn start_clock(model: Model) -> Effect(Message) {
   }
 }
 
-fn tick_after(milliseconds: Int) -> Effect(Message) {
+fn tick_after(milliseconds: Int) -> effect.Effect(Message) {
   use dispatch <- effect.from
   use now <- tick(milliseconds:)
   dispatch(Ticked(now_milliseconds: now))
 }
 
-fn end_track_after(milliseconds: Int) -> Effect(Message) {
+fn end_track_after(milliseconds: Int) -> effect.Effect(Message) {
   use dispatch <- effect.from
   use <- browser.after(milliseconds:)
   dispatch(TrackEnded)
 }
 
-fn reconnect_after(milliseconds: Int) -> Effect(Message) {
+fn reconnect_after(milliseconds: Int) -> effect.Effect(Message) {
   use dispatch <- effect.from
   use <- browser.after(milliseconds:)
   dispatch(ReconnectDelayElapsed)
@@ -276,11 +282,11 @@ pub type Event {
 type Activity {
   Activity(
     kind: Int,
-    application_id: Option(String),
+    application_id: option.Option(String),
     name: String,
-    details: Option(String),
-    state: Option(String),
-    artwork: Option(String),
+    details: option.Option(String),
+    state: option.Option(String),
+    artwork: option.Option(String),
     timing: Timing,
   )
 }
@@ -332,21 +338,21 @@ fn activity_decoder() -> decode.Decoder(Activity) {
   use kind <- decode.field("type", decode.int)
   use application_id <- decode.optional_field(
     "application_id",
-    None,
+    option.None,
     decode.optional(decode.string),
   )
   use name <- decode.field("name", decode.string)
   use details <- decode.optional_field(
     "details",
-    None,
+    option.None,
     decode.optional(decode.string),
   )
   use state <- decode.optional_field(
     "state",
-    None,
+    option.None,
     decode.optional(decode.string),
   )
-  use artwork <- decode.optional_field("assets", None, artwork_decoder())
+  use artwork <- decode.optional_field("assets", option.None, artwork_decoder())
   use timing <- decode.optional_field("timestamps", Untimed, timing_decoder())
   decode.success(Activity(
     kind:,
@@ -359,53 +365,61 @@ fn activity_decoder() -> decode.Decoder(Activity) {
   ))
 }
 
-fn artwork_decoder() -> decode.Decoder(Option(String)) {
+fn artwork_decoder() -> decode.Decoder(option.Option(String)) {
   use large_image <- decode.optional_field(
     "large_image",
-    None,
+    option.None,
     decode.optional(decode.string),
   )
 
   case large_image {
-    None -> decode.success(None)
-    Some(asset) -> decode.success(artwork_url(asset))
+    option.None -> decode.success(option.None)
+    option.Some(asset) -> decode.success(artwork_url(asset))
   }
 }
 
-fn artwork_url(asset: String) -> Option(String) {
+fn artwork_url(asset: String) -> option.Option(String) {
   case asset {
     "mp:external/" <> proxied ->
       case string.split_once(proxied, "/") {
-        Error(Nil) -> None
+        Error(Nil) -> option.None
         Ok(#(_hash, remainder)) ->
           case string.split_once(remainder, "/") {
-            Error(Nil) -> None
+            Error(Nil) -> option.None
             Ok(#(scheme, url)) -> safe_url(scheme <> "://" <> url)
           }
       }
-    _other -> None
+    _other -> option.None
   }
 }
 
-fn safe_url(url: String) -> Option(String) {
+fn safe_url(url: String) -> option.Option(String) {
   let unsafe = ["\"", "'", "(", ")", "\\", " ", "\n", "\r", "\t"]
 
   case list.any(unsafe, string.contains(url, _)) {
-    True -> None
-    False -> Some(url)
+    True -> option.None
+    False -> option.Some(url)
   }
 }
 
 fn timing_decoder() -> decode.Decoder(Timing) {
-  use start <- decode.optional_field("start", None, decode.optional(decode.int))
-  use end <- decode.optional_field("end", None, decode.optional(decode.int))
+  use start <- decode.optional_field(
+    "start",
+    option.None,
+    decode.optional(decode.int),
+  )
+  use end <- decode.optional_field(
+    "end",
+    option.None,
+    decode.optional(decode.int),
+  )
 
   case start, end {
-    Some(start_milliseconds), Some(end_milliseconds) ->
+    option.Some(start_milliseconds), option.Some(end_milliseconds) ->
       decode.success(Timed(start_milliseconds:, end_milliseconds:))
-    Some(_start), None -> decode.success(Untimed)
-    None, Some(_end) -> decode.success(Untimed)
-    None, None -> decode.success(Untimed)
+    option.Some(_start), option.None -> decode.success(Untimed)
+    option.None, option.Some(_end) -> decode.success(Untimed)
+    option.None, option.None -> decode.success(Untimed)
   }
 }
 
@@ -413,13 +427,20 @@ fn now_listening(activities: List(Activity)) -> Listening {
   let soundcloud_activity =
     list.find(activities, fn(activity) {
       activity.kind == listening_activity
-      && activity.application_id == Some(soundcloud_application_id)
+      && activity.application_id == option.Some(soundcloud_application_id)
     })
 
   case soundcloud_activity {
     Error(Nil) -> Nothing
-    Ok(Activity(details: None, ..)) -> Nothing
-    Ok(Activity(details: Some(title), state:, name:, artwork:, timing:, ..)) ->
+    Ok(Activity(details: option.None, ..)) -> Nothing
+    Ok(Activity(
+      details: option.Some(title),
+      state:,
+      name:,
+      artwork:,
+      timing:,
+      ..,
+    )) ->
       Track(
         title:,
         artist: option.unwrap(state, name),
@@ -432,7 +453,7 @@ fn now_listening(activities: List(Activity)) -> Listening {
 
 // VIEW ------------------------------------------------------------------------
 
-pub fn view(model: Model) -> Element(Message) {
+pub fn view(model: Model) -> element.Element(Message) {
   let children = case model.presence {
     Unknown -> [#("name", name_view([]))]
 
@@ -452,23 +473,28 @@ pub fn view(model: Model) -> Element(Message) {
     ]
   }
 
-  keyed.div([attr.class("presence")], children)
+  keyed.div([attribute.class("presence")], children)
 }
 
-fn name_view(after_name: List(Element(a))) -> Element(a) {
-  html.h1([attr.class("presence-name")], [html.text(username), ..after_name])
+fn name_view(after_name: List(element.Element(a))) -> element.Element(a) {
+  html.h1([attribute.class("presence-name")], [
+    html.text(username),
+    ..after_name
+  ])
 }
 
-fn status_view(status: Status) -> Element(a) {
+fn status_view(status: Status) -> element.Element(a) {
   case status {
     Offline -> element.none()
     Online | Idle | DoNotDisturb ->
       html.span(
         [
-          attr.class("presence-status presence-status-" <> status_slug(status)),
-          attr.attribute("role", "img"),
-          attr.attribute("aria-label", status_label(status)),
-          attr.title(status_label(status)),
+          attribute.class(
+            "presence-status presence-status-" <> status_slug(status),
+          ),
+          attribute.attribute("role", "img"),
+          attribute.attribute("aria-label", status_label(status)),
+          attribute.title(status_label(status)),
         ],
         [],
       )
@@ -496,45 +522,50 @@ fn status_label(status: Status) -> String {
 fn track_view(
   title: String,
   artist: String,
-  artwork: Option(String),
+  artwork: option.Option(String),
   timing: Timing,
   playback: Playback,
   clock: Clock,
-) -> Element(a) {
+) -> element.Element(a) {
   let classes = case playback {
     Playing -> "presence-track"
     Ending -> "presence-track is-ending"
   }
 
-  html.div([attr.class(classes)], [
+  html.div([attribute.class(classes)], [
     artwork_view(artwork, title),
-    html.div([attr.class("presence-track-text")], [
-      html.span([attr.class("presence-track-title")], [html.text(title)]),
-      html.div([attr.class("presence-track-meta")], [
-        html.span([attr.class("presence-track-artist")], [html.text(artist)]),
+    html.div([attribute.class("presence-track-text")], [
+      html.span([attribute.class("presence-track-title")], [html.text(title)]),
+      html.div([attribute.class("presence-track-meta")], [
+        html.span([attribute.class("presence-track-artist")], [
+          html.text(artist),
+        ]),
         position_view(timing, clock),
       ]),
     ]),
   ])
 }
 
-fn artwork_view(artwork: Option(String), title: String) -> Element(a) {
+fn artwork_view(
+  artwork: option.Option(String),
+  title: String,
+) -> element.Element(a) {
   case artwork {
-    None -> element.none()
-    Some(url) ->
+    option.None -> element.none()
+    option.Some(url) ->
       html.div(
         [
-          attr.class("presence-track-artwork"),
-          attr.attribute("role", "img"),
-          attr.attribute("aria-label", "Artwork for " <> title),
-          attr.style("background-image", "url(\"" <> url <> "\")"),
+          attribute.class("presence-track-artwork"),
+          attribute.attribute("role", "img"),
+          attribute.attribute("aria-label", "Artwork for " <> title),
+          attribute.style("background-image", "url(\"" <> url <> "\")"),
         ],
         [],
       )
   }
 }
 
-fn position_view(timing: Timing, clock: Clock) -> Element(a) {
+fn position_view(timing: Timing, clock: Clock) -> element.Element(a) {
   case timing, clock {
     Untimed, Paused -> element.none()
     Untimed, Ticking(..) -> element.none()
@@ -552,16 +583,16 @@ fn position_view(timing: Timing, clock: Clock) -> Element(a) {
               max: duration,
             )
 
-          html.div([attr.class("presence-track-position")], [
+          html.div([attribute.class("presence-track-position")], [
             html.progress(
               [
-                attr.class("presence-track-bar"),
-                attr.value(int.to_string(elapsed)),
-                attr.max(int.to_string(duration)),
+                attribute.class("presence-track-bar"),
+                attribute.value(int.to_string(elapsed)),
+                attribute.max(int.to_string(duration)),
               ],
               [],
             ),
-            html.span([attr.class("presence-track-time")], [
+            html.span([attribute.class("presence-track-time")], [
               html.text(
                 position_text(elapsed) <> " / " <> position_text(duration),
               ),

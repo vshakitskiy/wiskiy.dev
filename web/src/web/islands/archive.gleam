@@ -5,9 +5,9 @@ import gleam/json
 import gleam/list
 import gleam/string
 import lustre
-import lustre/attribute as attr
-import lustre/effect.{type Effect}
-import lustre/element.{type Element}
+import lustre/attribute
+import lustre/effect
+import lustre/element
 import lustre/element/html
 import lustre/event
 
@@ -46,7 +46,7 @@ pub fn main() -> Nil {
   Nil
 }
 
-pub fn init(_flags: Nil) -> #(Model, Effect(Message)) {
+pub fn init(_flags: Nil) -> #(Model, effect.Effect(Message)) {
   let entries = case json.parse(embedded(index_id), entries_decoder()) {
     Ok(entries) -> entries
     Error(_unreadable) -> []
@@ -63,7 +63,10 @@ pub type Message {
   FilterCleared
 }
 
-pub fn update(model: Model, message: Message) -> #(Model, Effect(Message)) {
+pub fn update(
+  model: Model,
+  message: Message,
+) -> #(Model, effect.Effect(Message)) {
   let model = case message {
     QueryChanged(query:) -> Model(..model, query:)
     FilterCleared -> Model(..model, filter: Everything)
@@ -149,39 +152,42 @@ pub fn entries_decoder() -> decode.Decoder(List(Entry)) {
 
 // VIEW ------------------------------------------------------------------------
 
-pub fn view(model: Model) -> Element(Message) {
+pub fn view(model: Model) -> element.Element(Message) {
   let found = matching(model)
 
-  html.div([attr.class("archive")], [
-    html.div([attr.class("archive-controls")], [
+  html.div([attribute.class("archive")], [
+    html.div([attribute.class("archive-controls")], [
       html.input([
-        attr.class("archive-search"),
-        attr.type_("search"),
-        attr.value(model.query),
-        attr.placeholder("search writing"),
-        attr.attribute("aria-label", "Search writing"),
+        attribute.class("archive-search"),
+        attribute.type_("search"),
+        attribute.value(model.query),
+        attribute.placeholder("search writing"),
+        attribute.attribute("aria-label", "Search writing"),
         event.on_input(QueryChanged),
       ]),
       tag_row(model),
     ]),
     case found {
       [] ->
-        html.p([attr.class("archive-empty")], [html.text("Nothing matches.")])
-      found -> html.ul([attr.class("entries")], list.map(found, entry_view))
+        html.p([attribute.class("archive-empty")], [
+          html.text("Nothing matches."),
+        ])
+      found ->
+        html.ul([attribute.class("entries")], list.map(found, entry_view))
     },
   ])
 }
 
-fn tag_row(model: Model) -> Element(Message) {
+fn tag_row(model: Model) -> element.Element(Message) {
   let all = tags(model.entries)
 
   case all {
     [] -> element.none()
     all ->
-      html.div([attr.class("archive-tags")], [
+      html.div([attribute.class("archive-tags")], [
         html.button(
           [
-            attr.class(case model.filter {
+            attribute.class(case model.filter {
               Everything -> "tag is-active"
               Tagged(_tag) -> "tag"
             }),
@@ -192,7 +198,7 @@ fn tag_row(model: Model) -> Element(Message) {
         ..list.map(all, fn(tag) {
           html.button(
             [
-              attr.class(case model.filter {
+              attribute.class(case model.filter {
                 Tagged(current) if current == tag -> "tag is-active"
                 Everything | Tagged(_other) -> "tag"
               }),
@@ -205,14 +211,14 @@ fn tag_row(model: Model) -> Element(Message) {
   }
 }
 
-fn entry_view(entry: Entry) -> Element(Message) {
+fn entry_view(entry: Entry) -> element.Element(Message) {
   html.li([], [
-    html.a([attr.class("entry"), attr.href(entry.path)], [
-      html.span([attr.class("entry-head")], [
-        html.span([attr.class("entry-title")], [html.text(entry.title)]),
-        html.span([attr.class("entry-date")], [html.text(entry.date)]),
+    html.a([attribute.class("entry"), attribute.href(entry.path)], [
+      html.span([attribute.class("entry-head")], [
+        html.span([attribute.class("entry-title")], [html.text(entry.title)]),
+        html.span([attribute.class("entry-date")], [html.text(entry.date)]),
       ]),
-      html.span([attr.class("entry-description")], [
+      html.span([attribute.class("entry-description")], [
         html.text(entry.description),
       ]),
     ]),
