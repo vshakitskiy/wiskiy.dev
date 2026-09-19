@@ -71,7 +71,7 @@ pub fn home(posts: List(writing.Post)) -> element.Element(Nil) {
       html.section([], [
         html.h2([], [html.text("Writing")]),
         entries(list.take(posts, recent_articles)),
-        html.a([attribute.class("more"), attribute.href("/writing.html")], [
+        html.a([attribute.class("more"), attribute.href(writing.index)], [
           html.text("all writing →"),
         ]),
       ]),
@@ -209,7 +209,7 @@ pub fn post(post: writing.Post) -> element.Element(Nil) {
     description: post.description,
     islands: list.map(post.islands, layout.Island),
     body: [
-      html.a([attribute.class("back"), attribute.href("/writing.html")], [
+      html.a([attribute.class("back"), attribute.href(writing.index)], [
         html.text("← writing"),
       ]),
       html.article([attribute.class("post")], [
