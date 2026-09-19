@@ -319,8 +319,10 @@ fn slugify(text: String) -> String {
   |> string.join("")
 }
 
+pub const index = "/writing"
+
 pub fn path(post: Post) -> String {
-  "/writing/" <> post.slug <> ".html"
+  index <> "/" <> post.slug
 }
 
 pub fn has_code(post: Post) -> Bool {
