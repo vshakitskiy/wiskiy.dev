@@ -1,3 +1,6 @@
+//// Server configuration read from the environment and static file serving
+//// for development.
+
 import api/activity
 import envoy
 import filepath
@@ -10,34 +13,31 @@ import gleam/result
 import gleam/string
 import wisp
 
-pub type Environment {
+const default_port = 8080
+
+const default_static_directory = "../web/dist"
+
+pub type Mode {
   Development
   Production
 }
 
 pub type Context {
-  Context(
-    mode: Environment,
-    port: Int,
-    static_directory: String,
-    activity: Activity,
-  )
+  Context(mode: Mode, port: Int, static_directory: String, activity: Activity)
 }
 
+/// Whether the GitHub activity worker has needed credentials.
 pub type Activity {
   Unconfigured
   Configured(credentials: activity.Credentials)
 }
 
-const default_port = 8080
-
-const default_static_directory = "../web/dist"
-
+/// Reads environment variables falling back to defaults.
 pub fn create_context() -> Context {
   Context(
     mode: case envoy.get("MODE") {
       Ok("dev") -> Development
-      Ok(_) | Error(_) -> Production
+      Ok(_other) | Error(Nil) -> Production
     },
     port: envoy.get("PORT")
       |> result.try(int.parse)
@@ -61,6 +61,7 @@ fn create_activity() -> Activity {
   }
 }
 
+/// Serves the built site, matching on the html files without extension.
 pub fn serve(request: wisp.Request, from directory: String) -> wisp.Response {
   use <- wisp.serve_static(request, under: "", from: directory)
   use <- wisp.serve_static(as_html(request), under: "", from: directory)
@@ -72,15 +73,20 @@ pub fn serve(request: wisp.Request, from directory: String) -> wisp.Response {
   |> response.set_body(wisp.File(path:, offset: 0, limit: option.None))
 }
 
-fn as_html(req: wisp.Request) -> wisp.Request {
-  let segments = wisp.path_segments(req)
+/// Points an extensionless path at its `.html` file and `/` at `index.html`.
+fn as_html(request: wisp.Request) -> wisp.Request {
+  let segments = wisp.path_segments(request)
+
   case list.last(segments) {
-    Error(_) -> request.set_path(req, "/index.html")
+    Error(Nil) -> request.set_path(request, "/index.html")
     Ok(last) ->
       case string.contains(last, ".") {
-        True -> req
+        True -> request
         False ->
-          request.set_path(req, "/" <> string.join(segments, "/") <> ".html")
+          request.set_path(
+            request,
+            "/" <> string.join(segments, "/") <> ".html",
+          )
       }
   }
 }

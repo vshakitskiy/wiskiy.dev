@@ -1,17 +1,25 @@
-//// Module to work with dates
+//// Parsing and formatting calendar dates.
 
 import gleam/float
 import gleam/int
-import gleam/order
 import gleam/result
 import gleam/string
 import gleam/time/calendar
 import gleam/time/duration
 import gleam/time/timestamp
 
-const days_in_week = 7
+pub const days_in_week = 7
 
-/// Parses `YYYY-MM-DD` string to date.
+const seconds_per_day = 86_400
+
+const midday = calendar.TimeOfDay(
+  hours: 12,
+  minutes: 0,
+  seconds: 0,
+  nanoseconds: 0,
+)
+
+/// Parses a `YYYY-MM-DD` string.
 pub fn parse(text: String) -> Result(calendar.Date, Nil) {
   case string.split(text, "-") {
     [year, month, day] -> {
@@ -25,8 +33,8 @@ pub fn parse(text: String) -> Result(calendar.Date, Nil) {
   }
 }
 
-/// Converts date to `YYYY-MM-DD` string.
-pub fn to_iso(date: calendar.Date) -> String {
+/// Formats a date as `YYYY-MM-DD`.
+pub fn to_iso8601(date: calendar.Date) -> String {
   int.to_string(date.year)
   <> "-"
   <> pad(calendar.month_to_int(date.month))
@@ -34,7 +42,7 @@ pub fn to_iso(date: calendar.Date) -> String {
   <> pad(date.day)
 }
 
-/// Converts date to human readable form.
+/// Formats a date for people to read, like `8 August, 2006`.
 pub fn to_human(date: calendar.Date) -> String {
   int.to_string(date.day)
   <> " "
@@ -43,7 +51,7 @@ pub fn to_human(date: calendar.Date) -> String {
   <> int.to_string(date.year)
 }
 
-/// Converts date to proper RSS format.
+/// Formats a date the way RSS expects, like `Tue, 08 Aug 2006 00:00:00 GMT`.
 pub fn to_rfc822(date: calendar.Date) -> String {
   short_weekday(date)
   <> ", "
@@ -55,22 +63,7 @@ pub fn to_rfc822(date: calendar.Date) -> String {
   <> " 00:00:00 GMT"
 }
 
-pub fn compare(one: calendar.Date, other: calendar.Date) -> order.Order {
-  case int.compare(one.year, other.year) {
-    order.Eq ->
-      case
-        int.compare(
-          calendar.month_to_int(one.month),
-          calendar.month_to_int(other.month),
-        )
-      {
-        order.Eq -> int.compare(one.day, other.day)
-        months -> months
-      }
-    years -> years
-  }
-}
-
+/// The name of the day of the week, like `Tuesday`.
 pub fn weekday(date: calendar.Date) -> String {
   case weekday_index(date) {
     0 -> "Sunday"
@@ -83,9 +76,10 @@ pub fn weekday(date: calendar.Date) -> String {
   }
 }
 
+/// The date `offset` days after `start`.
 pub fn day_at(start: calendar.Date, offset: Int) -> calendar.Date {
   let #(date, _time) =
-    timestamp.from_calendar(start, midday(), calendar.utc_offset)
+    timestamp.from_calendar(start, midday, calendar.utc_offset)
     |> timestamp.add(duration.hours(24 * offset))
     |> timestamp.to_calendar(calendar.utc_offset)
 
@@ -94,16 +88,12 @@ pub fn day_at(start: calendar.Date, offset: Int) -> calendar.Date {
 
 fn weekday_index(date: calendar.Date) -> Int {
   let seconds =
-    timestamp.from_calendar(date, midday(), calendar.utc_offset)
+    timestamp.from_calendar(date, midday, calendar.utc_offset)
     |> timestamp.to_unix_seconds
     |> float.round
 
-  let days = int.floor_divide(seconds, 86_400) |> result.unwrap(0)
+  let days = int.floor_divide(seconds, seconds_per_day) |> result.unwrap(0)
   int.modulo(days + 4, days_in_week) |> result.unwrap(0)
-}
-
-fn midday() -> calendar.TimeOfDay {
-  calendar.TimeOfDay(12, 0, 0, 0)
 }
 
 fn short_weekday(date: calendar.Date) -> String {

@@ -1,5 +1,6 @@
 :root {
   color-scheme: dark;
+  font-size: clamp(16px, 4px + 1vw, 20px);
 
   --background: #1a1817;
   --text: #faf5ec;
@@ -19,8 +20,6 @@
   --code-title: #aebdf0;
   --code-attribute: #e2b0ef;
   --code-comment: color-mix(in srgb, var(--text) 50%, transparent);
-
-  font-size: clamp(16px, 4px + 1vw, 20px);
 
   --font-text: "Space Mono", ui-monospace, monospace;
   --font-code: "Maple Mono", ui-monospace, monospace;
@@ -45,6 +44,7 @@
   --wave-step: 35ms;
   --fill-step: 12ms;
 
+  --radius-xs: 2px;
   --radius-s: 4px;
   --radius-m: 8px;
   --radius-pill: 999px;
@@ -58,8 +58,7 @@
   --sweep: 0.9s;
 }
 
-
-/* fonts ------------------------------------------------------------------- */
+/* fonts -------------------------------------------------------------------- */
 
 @font-face {
   font-family: "Space Mono";
@@ -125,7 +124,7 @@
   src: url("/fonts/maple-mono/maple-mono-bold-italic.woff2") format("woff2");
 }
 
-/* base -------------------------------------------------------------------- */
+/* base --------------------------------------------------------------------- */
 
 body {
   background: var(--background);
@@ -135,6 +134,7 @@ body {
   padding: var(--space-top) var(--space-m) var(--space-xl);
   font-family: var(--font-text);
   line-height: 1.6;
+  overflow-wrap: break-word;
 }
 
 h1,
@@ -159,52 +159,55 @@ samp {
   font-family: var(--font-code);
 }
 
-main>*+*,
-main>section>*+*,
-.post>*+* {
-  margin-block-start: var(--space-s);
-}
-
-.post>*+* {
-  margin-block-start: var(--space-m);
-}
-
-main>section>h2+*,
-.post>h2+* {
-  margin-block-start: var(--space-m);
-}
-
-.post>h2 {
-  margin-block-start: var(--space-l);
-}
-
-main>section+section {
-  margin-block-start: var(--space-xl);
-}
-
 img,
 svg,
 video {
   max-width: 100%;
 }
 
-body {
-  overflow-wrap: break-word;
+a {
+  color: inherit;
 }
 
-/* discord presence island --------------------------------------------------- */
-
-.presence {
-  --presence-art: 2.9rem;
-  --presence-gap: var(--space-m);
-  position: relative;
-  padding-top: calc(var(--presence-art) + var(--presence-gap));
+::selection {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--text);
 }
 
-.presence-name {
-  display: flex;
-  align-items: center;
-  gap: 0.55em;
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* vertical rhythm */
+
+main>*+*,
+main>section>*+* {
+  margin-block-start: var(--space-s);
+}
+
+main>section>h2+* {
+  margin-block-start: var(--space-m);
+}
+
+main>section+section {
+  margin-block-start: var(--space-xl);
+}
+
+/* enter and exit motion. */
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+    translate: 0 4px;
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
+    translate: 0 0;
+  }
 }
 
 @keyframes fall-out {
@@ -221,18 +224,19 @@ body {
   }
 }
 
-@keyframes rise-in {
-  from {
-    opacity: 0;
-    filter: blur(4px);
-    translate: 0 4px;
-  }
+/* discord presence island -------------------------------------------------- */
 
-  to {
-    opacity: 1;
-    filter: blur(0);
-    translate: 0 0;
-  }
+.presence {
+  --presence-art: 2.9rem;
+  --presence-gap: var(--space-m);
+  position: relative;
+  padding-top: calc(var(--presence-art) + var(--presence-gap));
+}
+
+.presence-name {
+  display: flex;
+  align-items: center;
+  gap: 0.55em;
 }
 
 .presence-status {
@@ -251,6 +255,7 @@ body {
   animation-fill-mode: both;
 }
 
+/* A soft ring that pulses out of the status dot. */
 .presence-status::after {
   content: "";
   position: absolute;
@@ -269,11 +274,7 @@ body {
     scale: 1;
   }
 
-  35% {
-    opacity: 0;
-    scale: 3.4;
-  }
-
+  35%,
   100% {
     opacity: 0;
     scale: 3.4;
@@ -292,6 +293,7 @@ body {
   --status: #f23f43;
 }
 
+/* The track sits in the space reserved above the name by `.presence`. */
 .presence-track {
   position: absolute;
   top: 0;
@@ -301,7 +303,6 @@ body {
   align-items: stretch;
   gap: var(--space-s);
   max-width: 100%;
-  margin: 0;
   font-size: var(--text-m);
   animation-name: rise-in;
   animation-duration: var(--slow);
@@ -311,9 +312,6 @@ body {
 
 .presence-track.is-ending {
   animation-name: fall-out;
-  animation-duration: var(--slow);
-  animation-timing-function: var(--ease);
-  animation-fill-mode: both;
 }
 
 .presence-track-artwork {
@@ -367,7 +365,7 @@ body {
   width: 7em;
   height: 3px;
   border: 0;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   overflow: hidden;
   background: var(--surface-strong);
 }
@@ -378,12 +376,12 @@ body {
 
 .presence-track-bar::-webkit-progress-value {
   background: currentColor;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
 }
 
 .presence-track-bar::-moz-progress-bar {
   background: currentColor;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
 }
 
 .presence-track-time {
@@ -392,7 +390,7 @@ body {
   opacity: var(--muted);
 }
 
-/* github activity island ---------------------------------------------------- */
+/* github activity island --------------------------------------------------- */
 
 .activity-grid {
   display: grid;
@@ -405,10 +403,11 @@ body {
 .activity-cell {
   aspect-ratio: 1;
   min-width: var(--cell-min);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   background: var(--activity-level, var(--surface));
 }
 
+/* `--wave` is set per cell by the island for the diagonal animation. */
 .activity-grid.is-loading .activity-cell {
   animation-name: activity-wave;
   animation-duration: var(--wave-period);
@@ -425,13 +424,6 @@ body {
   animation-delay: calc(var(--wave) * var(--fill-step));
 }
 
-@keyframes activity-fill {
-  from {
-    background-color: var(--surface);
-    scale: 0.6;
-  }
-}
-
 @keyframes activity-wave {
 
   0%,
@@ -441,6 +433,13 @@ body {
 
   50% {
     background-color: var(--surface-strong);
+  }
+}
+
+@keyframes activity-fill {
+  from {
+    background-color: var(--surface);
+    scale: 0.6;
   }
 }
 
@@ -483,6 +482,7 @@ body {
   margin: 0 0.3em;
 }
 
+/* Day tooltip built from the cell's `data-day` attribute. */
 .activity-cell[data-day] {
   position: relative;
   cursor: help;
@@ -513,6 +513,8 @@ body {
   transition-timing-function: var(--ease);
 }
 
+/* Tooltips in the first and last 15 weeks (105 days) align to the grid's
+   edge so they never overflows off the page. */
 .activity-grid .activity-cell[data-day]:nth-child(-n + 105)::after {
   left: 0;
   transform: none;
@@ -530,7 +532,31 @@ body {
   translate: 0 0;
 }
 
-/* featured work ------------------------------------------------------------- */
+@media (max-width: 36rem) {
+  .activity-grid {
+    overflow-x: auto;
+    grid-auto-columns: var(--cell-min);
+    padding-bottom: var(--space-2xs);
+    scrollbar-width: thin;
+  }
+
+  .activity-legend {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 36rem),
+(hover: none) {
+  .activity-cell[data-day]::after {
+    content: none;
+  }
+
+  .activity-cell[data-day] {
+    cursor: default;
+  }
+}
+
+/* featured work island ----------------------------------------------------- */
 
 .work {
   --work-row: 3.4rem;
@@ -592,7 +618,7 @@ body {
 
 .work-preview.is-shown {
   opacity: 1;
-  filter: blur(0px);
+  filter: blur(0);
   translate: 0 0;
 }
 
@@ -615,24 +641,7 @@ body {
   }
 }
 
-.work-link,
-.entry {
-  border-radius: var(--radius-s);
-  padding-inline: var(--space-xs);
-  margin-inline: calc(var(--space-xs) * -1);
-  transition-property: background-color;
-  transition-duration: var(--fast);
-  transition-timing-function: var(--ease);
-}
-
-.work-link:hover,
-.work-link:focus-visible,
-.entry:hover,
-.entry:focus-visible {
-  background-color: var(--surface);
-}
-
-/* socials ------------------------------------------------------------------- */
+/* socials ------------------------------------------------------------------ */
 
 .socials {
   display: flex;
@@ -663,11 +672,33 @@ body {
   display: block;
 }
 
-/* writing ------------------------------------------------------------------- */
+/* entries ------------------------------------------------------------------ */
 
 .entries {
   list-style: none;
   padding: 0;
+}
+
+.entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3xs);
+  padding-block: var(--space-xs);
+  color: inherit;
+  text-decoration: none;
+}
+
+.entry-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2xs) var(--space-m);
+  min-width: 0;
+}
+
+.entry-title {
+  min-width: 0;
 }
 
 .entry-date {
@@ -677,8 +708,80 @@ body {
   flex: none;
 }
 
+.entry-description {
+  font-size: var(--text-s);
+  opacity: var(--muted);
+}
+
+.work-link,
+.entry {
+  border-radius: var(--radius-s);
+  padding-inline: var(--space-xs);
+  margin-inline: calc(var(--space-xs) * -1);
+  transition-property: background-color;
+  transition-duration: var(--fast);
+  transition-timing-function: var(--ease);
+}
+
+.work-link:hover,
+.work-link:focus-visible,
+.entry:hover,
+.entry:focus-visible {
+  background-color: var(--surface);
+}
+
+.entry:hover .entry-title,
+.work-link:hover .work-name {
+  color: var(--accent);
+}
+
+.back,
+.more {
+  display: inline-block;
+  font-size: var(--text-s);
+  opacity: var(--muted);
+  color: inherit;
+  text-decoration: none;
+  transition-property: opacity;
+  transition-duration: var(--fast);
+  transition-timing-function: var(--ease);
+}
+
+.back:hover,
+.more:hover,
+.back:focus-visible,
+.more:focus-visible {
+  opacity: 1;
+}
+
+.back {
+  margin-bottom: var(--space-l);
+}
+
+.more {
+  margin-top: var(--space-s);
+}
+
+/* article ------------------------------------------------------------------ */
+
+.post>*+* {
+  margin-block-start: var(--space-m);
+}
+
+.post>h2+* {
+  margin-block-start: var(--space-m);
+}
+
+.post>h2 {
+  margin-block-start: var(--space-l);
+}
+
 .post-header {
   margin-bottom: var(--space-l);
+}
+
+.post-header .tags {
+  margin-top: var(--space-s);
 }
 
 .post-meta {
@@ -713,36 +816,29 @@ body {
   opacity: 0.8;
 }
 
-.post img {
-  max-width: 100%;
+/* Accent links with an underline that sweeps in on hover. */
+.post a,
+.footer a {
+  color: var(--accent);
+  text-decoration: none;
+  padding-bottom: 0.15em;
+  background-image: linear-gradient(currentColor, currentColor);
+  background-repeat: no-repeat;
+  background-position: left 100%;
+  background-size: 0 var(--rule);
+  transition-property: background-size;
+  transition-duration: var(--sweep);
+  transition-timing-function: var(--settle);
 }
 
-/* archive ------------------------------------------------------------------- */
-
-.archive-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-s);
-  margin-bottom: var(--space-m);
+.post a:hover,
+.post a:focus-visible,
+.footer a:hover,
+.footer a:focus-visible {
+  background-size: 100% var(--rule);
 }
 
-.archive-search {
-  flex: 1 1 12rem;
-  min-width: 0;
-  padding: 0.4em 0.6em;
-  border-radius: 6px;
-  border: 1px solid var(--hairline-strong);
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  font-size: var(--text-m);
-}
-
-.archive-search:focus-visible {
-  outline: none;
-  border-color: var(--hairline-strong);
-}
+/* tags --------------------------------------------------------------------- */
 
 .archive-tags,
 .tags {
@@ -778,11 +874,35 @@ button.tag:hover {
 
 .tag.is-active {
   opacity: 1;
-  border-color: var(--hairline-strong);
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
-.post-header .tags {
-  margin-top: var(--space-s);
+/* archive island ----------------------------------------------------------- */
+
+.archive-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-s);
+  margin-bottom: var(--space-m);
+}
+
+.archive-search {
+  flex: 1 1 12rem;
+  min-width: 0;
+  padding: 0.4em 0.6em;
+  border-radius: 6px;
+  border: 1px solid var(--hairline-strong);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: var(--text-m);
+}
+
+.archive-search:focus-visible {
+  outline: none;
+  border-color: var(--accent);
 }
 
 .archive-empty {
@@ -790,63 +910,7 @@ button.tag:hover {
   opacity: var(--muted);
 }
 
-/* entries ------------------------------------------------------------------- */
-
-.entry {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3xs);
-  padding-block: var(--space-xs);
-  color: inherit;
-  text-decoration: none;
-}
-
-.entry-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2xs) var(--space-m);
-  min-width: 0;
-}
-
-.entry-title {
-  min-width: 0;
-}
-
-.entry-description {
-  font-size: var(--text-s);
-  opacity: var(--muted);
-}
-
-.back,
-.more {
-  display: inline-block;
-  font-size: var(--text-s);
-  opacity: var(--muted);
-  color: inherit;
-  text-decoration: none;
-  transition-property: opacity;
-  transition-duration: var(--fast);
-  transition-timing-function: var(--ease);
-}
-
-.back:hover,
-.more:hover,
-.back:focus-visible,
-.more:focus-visible {
-  opacity: 1;
-}
-
-.back {
-  margin-bottom: var(--space-l);
-}
-
-.more {
-  margin-top: var(--space-s);
-}
-
-/* footer -------------------------------------------------------------------- */
+/* footer ------------------------------------------------------------------- */
 
 .footer {
   display: flex;
@@ -866,13 +930,14 @@ button.tag:hover {
   gap: 0.9rem;
 }
 
-/* age ----------------------------------------------------------------------- */
+/* age island --------------------------------------------------------------- */
 
 .age {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
+/* Each digit is a one-cell window onto a two-cell strip that rolls down. */
 .digit {
   --digit-shift: 0.2em;
   display: inline-block;
@@ -912,7 +977,7 @@ button.tag:hover {
   vertical-align: baseline;
 }
 
-/* flag ---------------------------------------------------------------------- */
+/* flag --------------------------------------------------------------------- */
 
 .flag {
   display: inline-block;
@@ -961,7 +1026,7 @@ button.tag:hover {
   color: color-mix(in srgb, var(--text) 70%, transparent);
 }
 
-/* syntax ------------------------------------------------------------------- */
+/* syntax highlighting ------------------------------------------------------ */
 
 .hljs {
   color: var(--text);
@@ -1004,77 +1069,4 @@ button.tag:hover {
 .hljs-comment {
   color: var(--code-comment);
   font-style: italic;
-}
-
-/* small screens ------------------------------------------------------------- */
-
-@media (max-width: 36rem) {
-  .activity-grid {
-    overflow-x: auto;
-    grid-auto-columns: var(--cell-min);
-    padding-bottom: var(--space-2xs);
-    scrollbar-width: thin;
-  }
-
-  .activity-legend {
-    justify-content: flex-start;
-  }
-}
-
-@media (max-width: 36rem),
-(hover: none) {
-  .activity-cell[data-day]::after {
-    content: none;
-  }
-
-  .activity-cell[data-day] {
-    cursor: default;
-  }
-}
-
-/* accents ------------------------------------------------------------------- */
-
-::selection {
-  background: color-mix(in srgb, var(--accent) 35%, transparent);
-  color: var(--text);
-}
-
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
-}
-
-a {
-  color: inherit;
-}
-
-.post a,
-.footer a {
-  color: var(--accent);
-  text-decoration: none;
-  padding-bottom: 0.15em;
-  background-image: linear-gradient(currentColor, currentColor);
-  background-repeat: no-repeat;
-  background-position: left 100%;
-  background-size: 0 var(--rule);
-  transition-property: background-size;
-  transition-duration: var(--sweep);
-  transition-timing-function: var(--settle);
-}
-
-.post a:hover,
-.post a:focus-visible,
-.footer a:hover,
-.footer a:focus-visible {
-  background-size: 100% var(--rule);
-}
-
-.entry:hover .entry-title,
-.work-link:hover .work-name {
-  color: var(--accent);
-}
-
-.tag.is-active {
-  color: var(--accent);
-  border-color: var(--accent);
 }

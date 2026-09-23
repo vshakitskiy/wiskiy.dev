@@ -1,8 +1,12 @@
-//// The searchable index of the articles.
+//// The searchable list of articles on the writing page.
+////
+//// The page is prerendered with every article and the entries are also 
+//// embedded as JSON so the island can filter them without a request.
 
 import gleam/dynamic/decode
 import gleam/json
 import gleam/list
+import gleam/result
 import gleam/string
 import lustre
 import lustre/attribute
@@ -13,7 +17,20 @@ import lustre/event
 
 pub const mount_id = "archive"
 
+/// Id of the `<script>` tag that holds the entries as JSON.
 pub const index_id = "archive-index"
+
+pub fn main() -> Nil {
+  let app = lustre.application(init:, update:, view:)
+  let assert Ok(_started) = lustre.start(app, onto: "#" <> mount_id, with: Nil)
+  Nil
+}
+
+// MODEL -----------------------------------------------------------------------
+
+pub type Model {
+  Model(entries: List(Entry), query: String, filter: Filter)
+}
 
 pub type Entry {
   Entry(
@@ -25,12 +42,6 @@ pub type Entry {
   )
 }
 
-// MODEL -----------------------------------------------------------------------
-
-pub type Model {
-  Model(entries: List(Entry), query: String, filter: Filter)
-}
-
 pub type Filter {
   Everything
   Tagged(tag: String)
@@ -40,17 +51,10 @@ pub fn from_entries(entries: List(Entry)) -> Model {
   Model(entries:, query: "", filter: Everything)
 }
 
-pub fn main() -> Nil {
-  let app = lustre.application(init:, update:, view:)
-  let assert Ok(_started) = lustre.start(app, onto: "#" <> mount_id, with: Nil)
-  Nil
-}
-
 pub fn init(_flags: Nil) -> #(Model, effect.Effect(Message)) {
-  let entries = case json.parse(embedded(index_id), entries_decoder()) {
-    Ok(entries) -> entries
-    Error(_unreadable) -> []
-  }
+  let entries =
+    json.parse(embedded(index_id), entries_decoder())
+    |> result.unwrap([])
 
   #(from_entries(entries), effect.none())
 }
@@ -71,9 +75,9 @@ pub fn update(
     QueryChanged(query:) -> Model(..model, query:)
     FilterCleared -> Model(..model, filter: Everything)
     TagChosen(tag:) ->
-      case model.filter {
-        Tagged(current) if current == tag -> Model(..model, filter: Everything)
-        Everything | Tagged(_other) -> Model(..model, filter: Tagged(tag))
+      case model.filter == Tagged(tag) {
+        True -> Model(..model, filter: Everything)
+        False -> Model(..model, filter: Tagged(tag))
       }
   }
 
@@ -82,7 +86,7 @@ pub fn update(
 
 // SEARCH ----------------------------------------------------------------------
 
-pub fn matching(model: Model) -> List(Entry) {
+fn matching(model: Model) -> List(Entry) {
   use entry <- list.filter(model.entries)
   matches_query(entry, model.query) && matches_filter(entry, model.filter)
 }
@@ -91,7 +95,6 @@ fn matches_query(entry: Entry, query: String) -> Bool {
   case string.trim(query) {
     "" -> True
     query -> {
-      let query = string.lowercase(query)
       let haystack =
         string.lowercase(
           entry.title
@@ -101,7 +104,7 @@ fn matches_query(entry: Entry, query: String) -> Bool {
           <> string.join(entry.tags, " "),
         )
 
-      string.contains(haystack, query)
+      string.contains(haystack, string.lowercase(query))
     }
   }
 }
@@ -113,18 +116,15 @@ fn matches_filter(entry: Entry, filter: Filter) -> Bool {
   }
 }
 
-pub fn tags(entries: List(Entry)) -> List(String) {
-  use seen, entry <- list.fold(entries, [])
-  use seen, tag <- list.fold(entry.tags, seen)
-
-  case list.contains(seen, tag) {
-    True -> seen
-    False -> list.append(seen, [tag])
-  }
+/// Every tag in use in order of first appearance.
+fn tags(entries: List(Entry)) -> List(String) {
+  list.flat_map(entries, fn(entry) { entry.tags })
+  |> list.unique
 }
 
 // JSON ------------------------------------------------------------------------
 
+/// Encodes the entries for embedding in a `<script>` tag.
 pub fn to_json(entries: List(Entry)) -> String {
   json.array(entries, fn(entry) {
     json.object([
@@ -139,7 +139,7 @@ pub fn to_json(entries: List(Entry)) -> String {
   |> string.replace("<", "\\u003C")
 }
 
-pub fn entries_decoder() -> decode.Decoder(List(Entry)) {
+fn entries_decoder() -> decode.Decoder(List(Entry)) {
   decode.list({
     use path <- decode.field("path", decode.string)
     use title <- decode.field("title", decode.string)
@@ -153,8 +153,6 @@ pub fn entries_decoder() -> decode.Decoder(List(Entry)) {
 // VIEW ------------------------------------------------------------------------
 
 pub fn view(model: Model) -> element.Element(Message) {
-  let found = matching(model)
-
   html.div([attribute.class("archive")], [
     html.div([attribute.class("archive-controls")], [
       html.input([
@@ -167,51 +165,52 @@ pub fn view(model: Model) -> element.Element(Message) {
       ]),
       tag_row(model),
     ]),
-    case found {
+    case matching(model) {
       [] ->
         html.p([attribute.class("archive-empty")], [
           html.text("Nothing matches."),
         ])
-      found ->
-        html.ul([attribute.class("entries")], list.map(found, entry_view))
+      found -> entry_list(found)
     },
   ])
 }
 
-fn tag_row(model: Model) -> element.Element(Message) {
-  let all = tags(model.entries)
+/// The list of article links, also used for recent writing on the home page.
+pub fn entry_list(entries: List(Entry)) -> element.Element(a) {
+  html.ul([attribute.class("entries")], list.map(entries, entry_view))
+}
 
-  case all {
+fn tag_row(model: Model) -> element.Element(Message) {
+  case tags(model.entries) {
     [] -> element.none()
-    all ->
+    tags ->
       html.div([attribute.class("archive-tags")], [
-        html.button(
-          [
-            attribute.class(case model.filter {
-              Everything -> "tag is-active"
-              Tagged(_tag) -> "tag"
-            }),
-            event.on_click(FilterCleared),
-          ],
-          [html.text("all")],
-        ),
-        ..list.map(all, fn(tag) {
-          html.button(
-            [
-              attribute.class(case model.filter {
-                Tagged(current) if current == tag -> "tag is-active"
-                Everything | Tagged(_other) -> "tag"
-              }),
-              event.on_click(TagChosen(tag:)),
-            ],
-            [html.text(tag)],
-          )
+        tag_button("all", model.filter == Everything, FilterCleared),
+        ..list.map(tags, fn(tag) {
+          tag_button(tag, model.filter == Tagged(tag), TagChosen(tag:))
         })
       ])
   }
 }
 
-fn entry_view(entry: Entry) -> element.Element(Message) {
+fn tag_button(
+  label: String,
+  active: Bool,
+  message: Message,
+) -> element.Element(Message) {
+  html.button(
+    [
+      attribute.class(case active {
+        True -> "tag is-active"
+        False -> "tag"
+      }),
+      event.on_click(message),
+    ],
+    [html.text(label)],
+  )
+}
+
+fn entry_view(entry: Entry) -> element.Element(a) {
   html.li([], [
     html.a([attribute.class("entry"), attribute.href(entry.path)], [
       html.span([attribute.class("entry-head")], [
@@ -227,6 +226,7 @@ fn entry_view(entry: Entry) -> element.Element(Message) {
 
 // FFI -------------------------------------------------------------------------
 
+/// Text content of the element with the given id or `""` if there is none.
 @external(javascript, "./archive_ffi.mjs", "embedded")
 fn embedded(_id: String) -> String {
   ""

@@ -1,21 +1,23 @@
+//// Links to my profiles elsewhere shown as icons.
+
 import gleam/list
 import lustre/attribute
 import lustre/element
 import lustre/element/html
 import lustre/element/svg
 
-pub type Social {
+type Social {
   Social(name: String, url: String, icon: Icon)
 }
 
-pub type Icon {
+type Icon {
   Github
   Tangled
   Discord
   Telegram
 }
 
-pub const socials = [
+const socials = [
   Social(name: "GitHub", url: "https://github.com/vshakitskiy", icon: Github),
   Social(name: "Tangled", url: "https://tangled.org/@wiskiy.dev", icon: Tangled),
   Social(
@@ -26,6 +28,7 @@ pub const socials = [
   Social(name: "Telegram", url: "https://t.me/vshakitskiy", icon: Telegram),
 ]
 
+/// The row of profile icons.
 pub fn view() -> element.Element(a) {
   html.ul([attribute.class("socials")], list.map(socials, link))
 }
@@ -46,7 +49,7 @@ fn link(social: Social) -> element.Element(a) {
   ])
 }
 
-pub fn icon(icon: Icon) -> element.Element(a) {
+fn icon(icon: Icon) -> element.Element(a) {
   case icon {
     Github ->
       mark(
@@ -71,6 +74,7 @@ pub fn icon(icon: Icon) -> element.Element(a) {
   }
 }
 
+/// A single path SVG icon that takes the text colour.
 fn mark(view_box view_box: String, path path: String) -> element.Element(a) {
   svg.svg(
     [

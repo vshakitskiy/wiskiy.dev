@@ -1,5 +1,7 @@
-//// GitHub contribution calendar refreshed on a timer and kept in 
-//// `persistent_term`.
+//// The GitHub contribution calendar behind `/api/activity`.
+////
+//// A worker fetches the calendar once a day and keeps the ready to send JSON
+//// in `persistent_term` so requests read it without touching GitHub.
 
 import gleam/bit_array
 import gleam/crypto
@@ -22,6 +24,8 @@ const refresh_interval_milliseconds = 86_400_000
 
 const retry_interval_milliseconds = 900_000
 
+const initialise_timeout_milliseconds = 1000
+
 const user_agent = "wiskiy.dev"
 
 const contributions_query = "query($login: String!) {
@@ -35,41 +39,37 @@ const contributions_query = "query($login: String!) {
   }
 }"
 
-pub type Credentials {
+// CREDENTIALS -----------------------------------------------------------------
+
+pub opaque type Credentials {
   Credentials(login: String, token: String)
 }
 
-pub type Snapshot {
-  Missing
-  Ready(json: String, etag: String)
-}
-
-pub opaque type Message {
-  Refresh
-}
-
-pub type Error {
-  RequestFailed(httpc.HttpError)
-  UnexpectedStatus(status: Int)
-  UnreadableCalendar(json.DecodeError)
-}
-
-type State {
-  State(self: process.Subject(Message), credentials: Credentials)
+/// Builds credentials from a GitHub login and token. Fails if either is blank.
+pub fn credentials(login: String, token: String) -> Result(Credentials, Nil) {
+  case string.trim(login), string.trim(token) {
+    "", _token | _login, "" -> Error(Nil)
+    login, token -> Ok(Credentials(login:, token:))
+  }
 }
 
 // STORE -----------------------------------------------------------------------
+
+type Snapshot {
+  Missing
+  Ready(json: String, etag: String)
+}
 
 type Key {
   GithubActivity
 }
 
-pub fn snapshot() -> Snapshot {
+fn snapshot() -> Snapshot {
   persistent_get(GithubActivity, Missing)
 }
 
-pub fn put(snapshot: Snapshot) -> Nil {
-  let _ = persistent_put(GithubActivity, snapshot)
+fn put(snapshot: Snapshot) -> Nil {
+  let _previous = persistent_put(GithubActivity, snapshot)
   Nil
 }
 
@@ -79,8 +79,17 @@ fn persistent_put(key: Key, value: Snapshot) -> atom.Atom
 @external(erlang, "persistent_term", "get")
 fn persistent_get(key: Key, default: Snapshot) -> Snapshot
 
-// ACTOR -----------------------------------------------------------------------
+// WORKER ----------------------------------------------------------------------
 
+pub opaque type Message {
+  Refresh
+}
+
+type State {
+  State(self: process.Subject(Message), credentials: Credentials)
+}
+
+/// A supervisor child that refreshes the calendar daily.
 pub fn supervised(
   credentials: Credentials,
 ) -> supervision.ChildSpecification(process.Subject(Message)) {
@@ -90,7 +99,7 @@ pub fn supervised(
 fn start(
   credentials: Credentials,
 ) -> Result(actor.Started(process.Subject(Message)), actor.StartError) {
-  actor.new_with_initialiser(1000, fn(self) {
+  actor.new_with_initialiser(initialise_timeout_milliseconds, fn(self) {
     process.send(self, Refresh)
 
     actor.initialised(State(self:, credentials:))
@@ -128,13 +137,14 @@ fn handle_message(
 
 // HANDLER ---------------------------------------------------------------------
 
+/// Responds with the stored calendar.
 pub fn handle_request(request: wisp.Request) -> wisp.Response {
   case snapshot() {
     Missing -> wisp.response(503)
     Ready(json:, etag:) ->
       case request.get_header(request, "if-none-match") {
         Ok(matched) if matched == etag -> wisp.response(304)
-        Ok(_) | Error(Nil) -> wisp.json_response(json, 200)
+        Ok(_stale) | Error(Nil) -> wisp.json_response(json, 200)
       }
       |> response.set_header("etag", etag)
       |> response.set_header("cache-control", "public, max-age=3600")
@@ -143,11 +153,17 @@ pub fn handle_request(request: wisp.Request) -> wisp.Response {
 
 // FETCHING --------------------------------------------------------------------
 
-fn fetch(config: Credentials) -> Result(Snapshot, Error) {
+type RefreshError {
+  RequestFailed(reason: httpc.HttpError)
+  UnexpectedStatus(status: Int)
+  UnreadableCalendar(reason: json.DecodeError)
+}
+
+fn fetch(credentials: Credentials) -> Result(Snapshot, RefreshError) {
   let body =
     json.object([
       #("query", json.string(contributions_query)),
-      #("variables", json.object([#("login", json.string(config.login))])),
+      #("variables", json.object([#("login", json.string(credentials.login))])),
     ])
     |> json.to_string
 
@@ -157,7 +173,7 @@ fn fetch(config: Credentials) -> Result(Snapshot, Error) {
     |> request.set_scheme(http.Https)
     |> request.set_host("api.github.com")
     |> request.set_path("/graphql")
-    |> request.set_header("authorization", "bearer " <> config.token)
+    |> request.set_header("authorization", "bearer " <> credentials.token)
     |> request.set_header("user-agent", user_agent)
     |> request.set_header("content-type", "application/json")
     |> request.set_body(body)
@@ -168,12 +184,13 @@ fn fetch(config: Credentials) -> Result(Snapshot, Error) {
   )
 
   case response.status {
-    200 -> from_response(response.body)
+    200 -> snapshot_from_response(response.body)
     status -> Error(UnexpectedStatus(status:))
   }
 }
 
-pub fn from_response(body: String) -> Result(Snapshot, Error) {
+/// Condenses GitHub's reply into `{ start, total, counts }`.
+fn snapshot_from_response(body: String) -> Result(Snapshot, RefreshError) {
   use days <- result.try(
     json.parse(body, calendar_decoder())
     |> result.map_error(UnreadableCalendar),
@@ -182,10 +199,11 @@ pub fn from_response(body: String) -> Result(Snapshot, Error) {
   case days {
     [] -> Ok(Missing)
     [Day(date: start, ..), ..] -> {
+      let total = list.fold(days, 0, fn(total, day) { total + day.count })
       let json =
         json.object([
           #("start", json.string(start)),
-          #("total", json.int(list.fold(days, 0, fn(t, d) { t + d.count }))),
+          #("total", json.int(total)),
           #("counts", json.array(days, fn(day) { json.int(day.count) })),
         ])
         |> json.to_string
@@ -227,13 +245,4 @@ fn day_decoder() -> decode.Decoder(Day) {
   use date <- decode.field("date", decode.string)
   use count <- decode.field("contributionCount", decode.int)
   decode.success(Day(date:, count:))
-}
-
-// CREDENTIALS -----------------------------------------------------------------
-
-pub fn credentials(login: String, token: String) -> Result(Credentials, Nil) {
-  case string.trim(login), string.trim(token) {
-    "", _token | _login, "" -> Error(Nil)
-    login, token -> Ok(Credentials(login:, token:))
-  }
 }

@@ -1,15 +1,15 @@
-//// Discord presence from Lanyard over its websocket gateway.
+//// My Discord presence streamed live from Lanyard's websocket.
 ////
-//// Until the first payload arrives the island renders only the username. Once 
-//// a presence lands a status dot appears next to the name and a SoundCloud
-//// activity adds a track line above it.
+//// Until the first payload arrives only the username shows. Once a presence
+//// lands, a status dot appears next to the name and a SoundCloud activity
+//// adds the current track above it.
 
 import gleam/dynamic/decode
 import gleam/int
 import gleam/json
 import gleam/list
 import gleam/option
-import gleam/order
+import gleam/result
 import gleam/string
 import lustre
 import lustre/attribute
@@ -33,19 +33,22 @@ const tick_interval_milliseconds = 1000
 
 const track_exit_milliseconds = 400
 
+/// Discord's activity type for "Listening to".
 const listening_activity = 2
 
-// I am not sure whatever this id is persistent accross the devices
+// SoundCloud's Discord application id. Not yet confirmed to be the same
+// across devices.
 const soundcloud_application_id = "1090770350251458592"
 
 pub fn main() -> Nil {
   let app = lustre.application(init:, update:, view:)
-  let assert Ok(_) = lustre.start(app, onto: "#" <> mount_id, with: Nil)
+  let assert Ok(_started) = lustre.start(app, onto: "#" <> mount_id, with: Nil)
   Nil
 }
 
 // MODEL -----------------------------------------------------------------------
 
+/// A browser `WebSocket`.
 pub type Socket
 
 pub type Model {
@@ -81,6 +84,7 @@ pub type Listening {
   )
 }
 
+/// A track that stops playing stays around as `Ending` while it animates out.
 pub type Playback {
   Playing
   Ending
@@ -126,8 +130,7 @@ pub fn update(
 
     SocketSentText(text:) ->
       case json.parse(text, event_decoder()) {
-        Error(_error) -> #(model, effect.none())
-        Ok(Ignored) -> #(model, effect.none())
+        Error(_undecodable) | Ok(Ignored) -> #(model, effect.none())
         Ok(Hello(heartbeat_interval:)) -> #(
           model,
           start_heartbeat(model.connection, heartbeat_interval),
@@ -177,6 +180,8 @@ fn timing_of(presence: Presence) -> Timing {
   }
 }
 
+/// Applies a new presence. When the track has just stopped it is kept as 
+/// `Ending` and `TrackEnded` removes it once the exit animation is done.
 fn settle(
   previous: Presence,
   next: Presence,
@@ -258,6 +263,7 @@ fn reconnect_after(milliseconds: Int) -> effect.Effect(Message) {
   dispatch(ReconnectDelayElapsed)
 }
 
+/// Opcode 2 subscribes to presence updates for one user.
 fn initialize_payload() -> String {
   json.object([
     #("op", json.int(2)),
@@ -266,6 +272,7 @@ fn initialize_payload() -> String {
   |> json.to_string
 }
 
+/// Opcode 3 keeps the connection alive.
 fn heartbeat_payload() -> String {
   json.object([#("op", json.int(3))])
   |> json.to_string
@@ -273,7 +280,7 @@ fn heartbeat_payload() -> String {
 
 // LANYARD PROTOCOL ------------------------------------------------------------
 
-pub type Event {
+type Event {
   Hello(heartbeat_interval: Int)
   PresenceReceived(presence: Presence)
   Ignored
@@ -291,10 +298,11 @@ type Activity {
   )
 }
 
-pub fn event_decoder() -> decode.Decoder(Event) {
-  use op <- decode.field("op", decode.int)
+fn event_decoder() -> decode.Decoder(Event) {
+  use opcode <- decode.field("op", decode.int)
 
-  case op {
+  case opcode {
+    // Hello, sent once the socket opens.
     1 -> {
       use heartbeat_interval <- decode.subfield(
         ["d", "heartbeat_interval"],
@@ -303,6 +311,7 @@ pub fn event_decoder() -> decode.Decoder(Event) {
       decode.success(Hello(heartbeat_interval:))
     }
 
+    // Event, carrying a presence among other things.
     0 -> {
       use name <- decode.field("t", decode.string)
       case name {
@@ -336,22 +345,10 @@ fn status_decoder() -> decode.Decoder(Status) {
 
 fn activity_decoder() -> decode.Decoder(Activity) {
   use kind <- decode.field("type", decode.int)
-  use application_id <- decode.optional_field(
-    "application_id",
-    option.None,
-    decode.optional(decode.string),
-  )
+  use application_id <- optional_field("application_id", decode.string)
   use name <- decode.field("name", decode.string)
-  use details <- decode.optional_field(
-    "details",
-    option.None,
-    decode.optional(decode.string),
-  )
-  use state <- decode.optional_field(
-    "state",
-    option.None,
-    decode.optional(decode.string),
-  )
+  use details <- optional_field("details", decode.string)
+  use state <- optional_field("state", decode.string)
   use artwork <- decode.optional_field("assets", option.None, artwork_decoder())
   use timing <- decode.optional_field("timestamps", Untimed, timing_decoder())
   decode.success(Activity(
@@ -365,64 +362,59 @@ fn activity_decoder() -> decode.Decoder(Activity) {
   ))
 }
 
+/// A field that may be missing or `null`.
+fn optional_field(
+  name: String,
+  decoder: decode.Decoder(value),
+  next: fn(option.Option(value)) -> decode.Decoder(result),
+) -> decode.Decoder(result) {
+  decode.optional_field(name, option.None, decode.optional(decoder), next)
+}
+
 fn artwork_decoder() -> decode.Decoder(option.Option(String)) {
-  use large_image <- decode.optional_field(
-    "large_image",
-    option.None,
-    decode.optional(decode.string),
+  use large_image <- optional_field("large_image", decode.string)
+  decode.success(
+    option.then(large_image, fn(asset) {
+      option.from_result(artwork_url(asset))
+    }),
   )
-
-  case large_image {
-    option.None -> decode.success(option.None)
-    option.Some(asset) -> decode.success(artwork_url(asset))
-  }
 }
 
-fn artwork_url(asset: String) -> option.Option(String) {
+/// Discord proxies external images as `mp:external/<hash>/<scheme>/<rest>`.
+/// This function turns that back into the original URL.
+fn artwork_url(asset: String) -> Result(String, Nil) {
   case asset {
-    "mp:external/" <> proxied ->
-      case string.split_once(proxied, "/") {
-        Error(Nil) -> option.None
-        Ok(#(_hash, remainder)) ->
-          case string.split_once(remainder, "/") {
-            Error(Nil) -> option.None
-            Ok(#(scheme, url)) -> safe_url(scheme <> "://" <> url)
-          }
-      }
-    _other -> option.None
+    "mp:external/" <> proxied -> {
+      use #(_hash, remainder) <- result.try(string.split_once(proxied, "/"))
+      use #(scheme, rest) <- result.try(string.split_once(remainder, "/"))
+      safe_url(scheme <> "://" <> rest)
+    }
+    _unproxied -> Error(Nil)
   }
 }
 
-fn safe_url(url: String) -> option.Option(String) {
+fn safe_url(url: String) -> Result(String, Nil) {
   let unsafe = ["\"", "'", "(", ")", "\\", " ", "\n", "\r", "\t"]
 
   case list.any(unsafe, string.contains(url, _)) {
-    True -> option.None
-    False -> option.Some(url)
+    True -> Error(Nil)
+    False -> Ok(url)
   }
 }
 
 fn timing_decoder() -> decode.Decoder(Timing) {
-  use start <- decode.optional_field(
-    "start",
-    option.None,
-    decode.optional(decode.int),
-  )
-  use end <- decode.optional_field(
-    "end",
-    option.None,
-    decode.optional(decode.int),
-  )
+  use start <- optional_field("start", decode.int)
+  use end <- optional_field("end", decode.int)
 
   case start, end {
     option.Some(start_milliseconds), option.Some(end_milliseconds) ->
       decode.success(Timed(start_milliseconds:, end_milliseconds:))
-    option.Some(_start), option.None -> decode.success(Untimed)
-    option.None, option.Some(_end) -> decode.success(Untimed)
-    option.None, option.None -> decode.success(Untimed)
+    option.Some(_start), option.None | option.None, _end ->
+      decode.success(Untimed)
   }
 }
 
+/// The SoundCloud track being played, if any.
 fn now_listening(activities: List(Activity)) -> Listening {
   let soundcloud_activity =
     list.find(activities, fn(activity) {
@@ -527,23 +519,26 @@ fn track_view(
   playback: Playback,
   clock: Clock,
 ) -> element.Element(a) {
-  let classes = case playback {
-    Playing -> "presence-track"
-    Ending -> "presence-track is-ending"
-  }
-
-  html.div([attribute.class(classes)], [
-    artwork_view(artwork, title),
-    html.div([attribute.class("presence-track-text")], [
-      html.span([attribute.class("presence-track-title")], [html.text(title)]),
-      html.div([attribute.class("presence-track-meta")], [
-        html.span([attribute.class("presence-track-artist")], [
-          html.text(artist),
+  html.div(
+    [
+      attribute.class(case playback {
+        Playing -> "presence-track"
+        Ending -> "presence-track is-ending"
+      }),
+    ],
+    [
+      artwork_view(artwork, title),
+      html.div([attribute.class("presence-track-text")], [
+        html.span([attribute.class("presence-track-title")], [html.text(title)]),
+        html.div([attribute.class("presence-track-meta")], [
+          html.span([attribute.class("presence-track-artist")], [
+            html.text(artist),
+          ]),
+          position_view(timing, clock),
         ]),
-        position_view(timing, clock),
       ]),
-    ]),
-  ])
+    ],
+  )
 }
 
 fn artwork_view(
@@ -567,42 +562,34 @@ fn artwork_view(
 
 fn position_view(timing: Timing, clock: Clock) -> element.Element(a) {
   case timing, clock {
-    Untimed, Paused -> element.none()
-    Untimed, Ticking(..) -> element.none()
-    Timed(..), Paused -> element.none()
+    Timed(start_milliseconds:, end_milliseconds:), Ticking(now_milliseconds:)
+      if end_milliseconds > start_milliseconds
+    -> {
+      let duration = end_milliseconds - start_milliseconds
+      let elapsed =
+        int.clamp(now_milliseconds - start_milliseconds, min: 0, max: duration)
 
-    Timed(start_milliseconds:, end_milliseconds:), Ticking(now_milliseconds:) ->
-      case int.compare(end_milliseconds, start_milliseconds) {
-        order.Lt | order.Eq -> element.none()
-        order.Gt -> {
-          let duration = end_milliseconds - start_milliseconds
-          let elapsed =
-            int.clamp(
-              now_milliseconds - start_milliseconds,
-              min: 0,
-              max: duration,
-            )
+      html.div([attribute.class("presence-track-position")], [
+        html.progress(
+          [
+            attribute.class("presence-track-bar"),
+            attribute.value(int.to_string(elapsed)),
+            attribute.max(int.to_string(duration)),
+          ],
+          [],
+        ),
+        html.span([attribute.class("presence-track-time")], [
+          html.text(position_text(elapsed) <> " / " <> position_text(duration)),
+        ]),
+      ])
+    }
 
-          html.div([attribute.class("presence-track-position")], [
-            html.progress(
-              [
-                attribute.class("presence-track-bar"),
-                attribute.value(int.to_string(elapsed)),
-                attribute.max(int.to_string(duration)),
-              ],
-              [],
-            ),
-            html.span([attribute.class("presence-track-time")], [
-              html.text(
-                position_text(elapsed) <> " / " <> position_text(duration),
-              ),
-            ]),
-          ])
-        }
-      }
+    Timed(..), Ticking(..) | Timed(..), Paused | Untimed, _clock ->
+      element.none()
   }
 }
 
+/// Formats a duration as `m:ss`.
 fn position_text(milliseconds: Int) -> String {
   let seconds = milliseconds / 1000
   int.to_string(seconds / 60)

@@ -1,4 +1,6 @@
-import gleam/float
+//// Every page of the site. Islands are prerendered with their initial model
+//// so the page looks fine before any JavaScript runs.
+
 import gleam/int
 import gleam/list
 import gleam/result
@@ -17,7 +19,13 @@ import web/layout
 import web/socials
 import web/writing
 
-// TODO: any webrings??? 
+// TODO: any webrings???
+
+const recent_articles = 4
+
+const flag_clip = "flag-corners"
+
+// HOME ------------------------------------------------------------------------
 
 pub fn home(posts: List(writing.Post)) -> element.Element(Nil) {
   let #(presence_model, _presence_effect) = presence.init(Nil)
@@ -26,8 +34,9 @@ pub fn home(posts: List(writing.Post)) -> element.Element(Nil) {
   let #(age_model, _age_effect) = age.init(Nil)
 
   layout.page(
-    title: "Home",
+    title: layout.site_name,
     description: "software engineer & gleam enthusiast",
+    kind: layout.Website(path: "/"),
     islands: [
       layout.Island("presence"),
       layout.Island("activity"),
@@ -70,7 +79,7 @@ pub fn home(posts: List(writing.Post)) -> element.Element(Nil) {
       ]),
       html.section([], [
         html.h2([], [html.text("Writing")]),
-        entries(list.take(posts, recent_articles)),
+        recent(posts),
         html.a([attribute.class("more"), attribute.href(writing.index)], [
           html.text("all writing →"),
         ]),
@@ -79,12 +88,52 @@ pub fn home(posts: List(writing.Post)) -> element.Element(Nil) {
   )
 }
 
+/// A flag with rounded corners sized to sit inline with text.
+fn flag() -> element.Element(a) {
+  svg.svg(
+    [
+      attribute.class("flag"),
+      attribute.attribute("viewBox", "0 0 9 6"),
+      attribute.attribute("role", "img"),
+      attribute.attribute("aria-label", "Russia"),
+    ],
+    [
+      svg.defs([], [
+        svg.clip_path([attribute.id(flag_clip)], [
+          svg.rect([
+            attribute.attribute("width", "9"),
+            attribute.attribute("height", "6"),
+            attribute.attribute("rx", "0.85"),
+          ]),
+        ]),
+      ]),
+      svg.g([attribute.attribute("clip-path", "url(#" <> flag_clip <> ")")], [
+        band(top: 0, colour: "#ebe6dc"),
+        band(top: 2, colour: "#002f87"),
+        band(top: 4, colour: "#bf2419"),
+      ]),
+    ],
+  )
+}
+
+fn band(top top: Int, colour colour: String) -> element.Element(a) {
+  svg.rect([
+    attribute.attribute("y", int.to_string(top)),
+    attribute.attribute("width", "9"),
+    attribute.attribute("height", "2"),
+    attribute.attribute("fill", colour),
+  ])
+}
+
+// GUESTBOOK -------------------------------------------------------------------
+
 pub fn guestbook() -> element.Element(Nil) {
   let #(model, _effect) = guestbook.init(Nil)
 
   layout.page(
     title: "Guestbook",
     description: "Leave a message.",
+    kind: layout.Website(path: "/guestbook"),
     islands: [layout.Island("guestbook")],
     body: [
       html.h1([], [html.text("Guestbook")]),
@@ -96,15 +145,16 @@ pub fn guestbook() -> element.Element(Nil) {
   )
 }
 
+// NOT FOUND -------------------------------------------------------------------
+
 pub fn not_found(posts: List(writing.Post)) -> element.Element(Nil) {
   layout.page(
     title: "Not found",
     description: "There's nothing here!",
+    kind: layout.NotFound,
     islands: [],
     body: [
-      html.a([attribute.class("back"), attribute.href("/")], [
-        html.text("← home"),
-      ]),
+      back(to: "/", label: "home"),
       html.section([attribute.class("lost")], [
         html.h1(
           [
@@ -126,25 +176,29 @@ pub fn not_found(posts: List(writing.Post)) -> element.Element(Nil) {
         posts ->
           html.section([], [
             html.h2([], [html.text("Maybe you seek for one of these?")]),
-            entries(list.take(posts, recent_articles)),
+            recent(posts),
           ])
       },
     ],
   )
 }
 
+/// A column of digits that spins down and lands on `digit` like a slot
+/// machine reel. The strip starts `spins - 1` cells up and slides into place.
 fn reel(
   digit: Int,
   spins spins: Int,
   duration duration: String,
-) -> element.Element(Nil) {
+) -> element.Element(a) {
   let cells =
-    list.repeat(Nil, spins)
-    |> list.index_map(fn(_cell, offset) {
+    int.range(from: spins - 1, to: -1, with: [], run: fn(cells, offset) {
       let shown = int.modulo(digit - offset, 10) |> result.unwrap(digit)
-      html.span([attribute.class("lost-cell")], [
-        html.text(int.to_string(shown)),
-      ])
+      let cell =
+        html.span([attribute.class("lost-cell")], [
+          html.text(int.to_string(shown)),
+        ])
+
+      [cell, ..cells]
     })
 
   html.span(
@@ -172,11 +226,10 @@ pub fn writing(posts: List(writing.Post)) -> element.Element(Nil) {
   layout.page(
     title: "Writing",
     description: "Things I've written down.",
+    kind: layout.Website(path: writing.index),
     islands: [layout.Island("archive")],
     body: [
-      html.a([attribute.class("back"), attribute.href("/")], [
-        html.text("← home"),
-      ]),
+      back(to: "/", label: "home"),
       html.h1([], [html.text("Writing")]),
       html.div([attribute.id(archive.mount_id)], [
         archive.view(model)
@@ -193,31 +246,24 @@ pub fn writing(posts: List(writing.Post)) -> element.Element(Nil) {
   )
 }
 
-fn to_entry(post: writing.Post) -> archive.Entry {
-  archive.Entry(
-    path: writing.path(post),
-    title: post.title,
-    date: date.to_human(post.date),
-    description: post.description,
-    tags: post.tags,
-  )
-}
-
 pub fn post(post: writing.Post) -> element.Element(Nil) {
   layout.page(
     title: post.title,
     description: post.description,
+    kind: layout.Article(
+      path: writing.path(post),
+      published: post.date,
+      tags: post.tags,
+    ),
     islands: list.map(post.islands, layout.Island),
     body: [
-      html.a([attribute.class("back"), attribute.href(writing.index)], [
-        html.text("← writing"),
-      ]),
+      back(to: writing.index, label: "writing"),
       html.article([attribute.class("post")], [
         html.header([attribute.class("post-header")], [
           html.h1([], [html.text(post.title)]),
           html.p([attribute.class("post-meta")], [
             html.time(
-              [attribute.attribute("datetime", date.to_iso(post.date))],
+              [attribute.attribute("datetime", date.to_iso8601(post.date))],
               [html.text(date.to_human(post.date))],
             ),
           ]),
@@ -230,7 +276,8 @@ pub fn post(post: writing.Post) -> element.Element(Nil) {
   )
 }
 
-fn highlighting(post: writing.Post) -> List(element.Element(Nil)) {
+/// highlight.js loaded only on articles that have code blocks.
+fn highlighting(post: writing.Post) -> List(element.Element(a)) {
   case writing.has_code(post) {
     False -> []
     True -> [
@@ -241,29 +288,7 @@ fn highlighting(post: writing.Post) -> List(element.Element(Nil)) {
   }
 }
 
-const recent_articles = 4
-
-fn entries(posts: List(writing.Post)) -> element.Element(Nil) {
-  html.ul([attribute.class("entries")], list.map(posts, entry))
-}
-
-fn entry(post: writing.Post) -> element.Element(Nil) {
-  html.li([], [
-    html.a([attribute.class("entry"), attribute.href(writing.path(post))], [
-      html.span([attribute.class("entry-head")], [
-        html.span([attribute.class("entry-title")], [html.text(post.title)]),
-        html.span([attribute.class("entry-date")], [
-          html.text(date.to_human(post.date)),
-        ]),
-      ]),
-      html.span([attribute.class("entry-description")], [
-        html.text(post.description),
-      ]),
-    ]),
-  ])
-}
-
-fn tag_list(tags: List(String)) -> element.Element(Nil) {
+fn tag_list(tags: List(String)) -> element.Element(a) {
   case tags {
     [] -> element.none()
     tags ->
@@ -276,53 +301,27 @@ fn tag_list(tags: List(String)) -> element.Element(Nil) {
   }
 }
 
-fn flag() -> element.Element(Nil) {
-  svg.svg(
-    [
-      attribute.class("flag"),
-      attribute.attribute("viewBox", "0 0 9 6"),
-      attribute.attribute("role", "img"),
-      attribute.attribute("aria-label", "Russia"),
-    ],
-    [
-      svg.defs([], [
-        svg.clip_path([attribute.id(flag_clip)], [
-          rounded(x: 0.0, y: 0.0, width: 9.0, height: 6.0, radius: 0.85),
-        ]),
-      ]),
-      svg.g([attribute.attribute("clip-path", "url(#" <> flag_clip <> ")")], [
-        band(0.0, "#ebe6dc"),
-        band(2.0, "#002f87"),
-        band(4.0, "#bf2419"),
-      ]),
-    ],
+// SHARED ----------------------------------------------------------------------
+
+/// The newest few articles.
+fn recent(posts: List(writing.Post)) -> element.Element(a) {
+  list.take(posts, recent_articles)
+  |> list.map(to_entry)
+  |> archive.entry_list
+}
+
+fn to_entry(post: writing.Post) -> archive.Entry {
+  archive.Entry(
+    path: writing.path(post),
+    title: post.title,
+    date: date.to_human(post.date),
+    description: post.description,
+    tags: post.tags,
   )
 }
 
-const flag_clip = "flag-corners"
-
-fn band(top: Float, colour: String) -> element.Element(Nil) {
-  svg.rect([
-    attribute.attribute("x", "0"),
-    attribute.attribute("y", float.to_string(top)),
-    attribute.attribute("width", "9"),
-    attribute.attribute("height", "2"),
-    attribute.attribute("fill", colour),
-  ])
-}
-
-fn rounded(
-  x x: Float,
-  y y: Float,
-  width width: Float,
-  height height: Float,
-  radius radius: Float,
-) -> element.Element(Nil) {
-  svg.rect([
-    attribute.attribute("x", float.to_string(x)),
-    attribute.attribute("y", float.to_string(y)),
-    attribute.attribute("width", float.to_string(width)),
-    attribute.attribute("height", float.to_string(height)),
-    attribute.attribute("rx", float.to_string(radius)),
+fn back(to href: String, label label: String) -> element.Element(a) {
+  html.a([attribute.class("back"), attribute.href(href)], [
+    html.text("← " <> label),
   ])
 }

@@ -5,7 +5,7 @@ ISLANDS := web/islands/guestbook web/islands/presence web/islands/activity web/i
 client: client-ssg client-islands
 
 client-ssg:
-	cd web && gleam run -m build
+	cd web && gleam run -m web/build
 
 client-islands:
 	cd web && gleam run -m lustre/dev build --minify --no-html \

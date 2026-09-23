@@ -1,4 +1,5 @@
-//// A list with a preview panel that follows the pointer down the rows.
+//// My featured projects. On hover, a preview panel follows the pointer down
+//// the list and crossfades to the project under it.
 
 import gleam/int
 import gleam/list
@@ -20,7 +21,7 @@ pub type Media {
   Video(source: String)
 }
 
-pub const projects = [
+const projects = [
   Project(
     name: "ewe",
     description: "a fluffy Gleam web server",
@@ -47,6 +48,8 @@ pub type Model {
   Model(preview: Preview)
 }
 
+/// The panel remembers its row while hidden so it fades out in place instead 
+/// of jumping back to the top.
 pub type Preview {
   Hidden(at: Int)
   Shown(at: Int)
@@ -89,14 +92,12 @@ type Visibility {
 }
 
 pub fn view(model: Model) -> element.Element(Message) {
-  let parked = row_of(model.preview)
-
   html.div([attribute.class("work")], [
     html.ul(
       [attribute.class("work-list"), event.on_mouse_leave(ListLeft)],
       list.index_map(projects, row),
     ),
-    preview(model.preview, parked),
+    preview(model.preview),
   ])
 }
 
@@ -121,8 +122,9 @@ fn row(project: Project, index: Int) -> element.Element(Message) {
   ])
 }
 
-fn preview(state: Preview, parked: Int) -> element.Element(Message) {
-  let visibility = case state {
+fn preview(preview: Preview) -> element.Element(Message) {
+  let parked = row_of(preview)
+  let visibility = case preview {
     Shown(at: _shown_row) -> Showing
     Hidden(at: _hidden_row) -> Faded
   }
