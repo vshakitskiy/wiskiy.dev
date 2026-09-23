@@ -15,6 +15,14 @@
 		@html path_regexp html ^(.+)\.html$
 		redir @html {re.html.1} permanent
 		header /fonts/* Cache-Control "public, max-age=31536000, immutable"
+
+		@chunks path_regexp ^/js/.+-[a-z0-9]{8}\.js$
+		header @chunks Cache-Control "public, max-age=31536000, immutable"
+		@entries {
+			path /js/*
+			not path_regexp ^/js/.+-[a-z0-9]{8}\.js$
+		}
+		header @entries Cache-Control "no-cache"
 		try_files {path}.html {path}
 		file_server
 	}
