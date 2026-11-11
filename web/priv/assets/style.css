@@ -39,10 +39,6 @@
   --space-top: 4rem;
 
   --measure: 42rem;
-  --cell-min: 0.5rem;
-  --wave-period: 1.8s;
-  --wave-step: 35ms;
-  --fill-step: 12ms;
 
   --radius-xs: 2px;
   --radius-s: 4px;
@@ -58,7 +54,7 @@
   --sweep: 0.9s;
 }
 
-/* fonts -------------------------------------------------------------------- */
+/* Fonts */
 
 @font-face {
   font-family: "Space Mono";
@@ -124,7 +120,7 @@
   src: url("/fonts/maple-mono/maple-mono-bold-italic.woff2") format("woff2");
 }
 
-/* base --------------------------------------------------------------------- */
+/* Base */
 
 body {
   background: var(--background);
@@ -140,7 +136,11 @@ body {
 h1,
 h2,
 h3,
+h4,
+h5,
+h6,
 p,
+pre,
 ul,
 ol {
   margin-block: 0;
@@ -148,7 +148,10 @@ ol {
 
 h1,
 h2,
-h3 {
+h3,
+h4,
+h5,
+h6 {
   line-height: 1.25;
 }
 
@@ -179,22 +182,20 @@ a {
   outline-offset: 2px;
 }
 
-/* vertical rhythm */
-
-main>*+*,
-main>section>*+* {
+main > * + *,
+main > section > * + * {
   margin-block-start: var(--space-s);
 }
 
-main>section>h2+* {
+main > section > h2 + * {
   margin-block-start: var(--space-m);
 }
 
-main>section+section {
+main > section + section {
   margin-block-start: var(--space-xl);
 }
 
-/* enter and exit motion. */
+/* Motion */
 
 @keyframes rise-in {
   from {
@@ -224,7 +225,7 @@ main>section+section {
   }
 }
 
-/* discord presence island -------------------------------------------------- */
+/* Presence */
 
 .presence {
   --presence-art: 2.9rem;
@@ -255,7 +256,6 @@ main>section+section {
   animation-fill-mode: both;
 }
 
-/* A soft ring that pulses out of the status dot. */
 .presence-status::after {
   content: "";
   position: absolute;
@@ -293,7 +293,6 @@ main>section+section {
   --status: #f23f43;
 }
 
-/* The track sits in the space reserved above the name by `.presence`. */
 .presence-track {
   position: absolute;
   top: 0;
@@ -390,30 +389,57 @@ main>section+section {
   opacity: var(--muted);
 }
 
-/* github activity island --------------------------------------------------- */
+/* Activity */
+
+.activity {
+  --cell-min: 0.5rem;
+  --cell-gap: 0.125rem;
+  --wave-period: 1.8s;
+  --wave-step: 35ms;
+  --fill-step: 12ms;
+  container-type: inline-size;
+  position: relative;
+}
 
 .activity-grid {
   display: grid;
   grid-auto-flow: column;
   grid-template-rows: repeat(7, 1fr);
-  grid-auto-columns: 1fr;
-  gap: 0.125rem;
+  grid-auto-columns: minmax(var(--cell-min), 1fr);
+  gap: var(--cell-gap);
+  overflow-x: auto;
+  padding-bottom: var(--space-2xs);
+  scrollbar-width: thin;
 }
 
 .activity-cell {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
   aspect-ratio: 1;
   min-width: var(--cell-min);
+  padding: 0;
+  border: 0;
   border-radius: var(--radius-xs);
   background: var(--activity-level, var(--surface));
 }
 
-/* `--wave` is set per cell by the island for the diagonal animation. */
+button.activity-cell {
+  appearance: none;
+  cursor: help;
+}
+
+button.activity-cell:focus-visible {
+  outline-offset: -1px;
+}
+
 .activity-grid.is-loading .activity-cell {
   animation-name: activity-wave;
   animation-duration: var(--wave-period);
   animation-timing-function: ease-in-out;
   animation-iteration-count: infinite;
-  animation-delay: calc(var(--wave) * var(--wave-step) - var(--wave-period) * 2);
+  animation-delay: calc(var(--wave) * var(--wave-step) - var(--wave-period) *
+    2);
 }
 
 .activity-grid.is-loaded .activity-cell {
@@ -425,7 +451,6 @@ main>section+section {
 }
 
 @keyframes activity-wave {
-
   0%,
   100% {
     background-color: var(--surface);
@@ -467,7 +492,7 @@ main>section+section {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 3px;
+  gap: var(--cell-gap);
   margin-top: 0.5em;
 }
 
@@ -482,81 +507,50 @@ main>section+section {
   margin: 0 0.3em;
 }
 
-/* Day tooltip built from the cell's `data-day` attribute. */
-.activity-cell[data-day] {
-  position: relative;
-  cursor: help;
-}
-
-.activity-cell[data-day]::after {
-  content: attr(data-day);
+.activity-tooltip {
   position: absolute;
-  bottom: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
+  top: 0;
+  left: 0;
   z-index: 1;
-  padding: 0.3em 0.5em;
-  border-radius: var(--radius-s);
-  background: var(--raised);
-  color: var(--text);
-  border: 1px solid var(--hairline);
-  font-size: var(--text-xs);
-  white-space: nowrap;
+  display: flex;
+  width: max-content;
+  max-width: 100%;
+  transform: translate(
+    clamp(0px, calc(var(--tooltip-anchor-x, 0px) - 50%), calc(100cqw - 100%)),
+    var(--tooltip-anchor-y, 0px)
+  )
+    translateY(calc(-100% - var(--space-2xs)));
   pointer-events: none;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
 
+  visibility: hidden;
   opacity: 0;
   filter: blur(3px);
   translate: 0 3px;
-  transition-property: opacity, filter, translate;
+  transition-property: opacity, filter, translate, visibility;
   transition-duration: var(--fast);
   transition-timing-function: var(--ease);
 }
 
-/* Tooltips in the first and last 15 weeks (105 days) align to the grid's
-   edge so they never overflows off the page. */
-.activity-grid .activity-cell[data-day]:nth-child(-n + 105)::after {
-  left: 0;
-  transform: none;
-}
-
-.activity-grid .activity-cell[data-day]:nth-last-child(-n + 105)::after {
-  left: auto;
-  right: 0;
-  transform: none;
-}
-
-.activity-cell[data-day]:hover::after {
+.activity-tooltip.is-shown {
+  visibility: visible;
   opacity: 1;
   filter: blur(0);
   translate: 0 0;
 }
 
-@media (max-width: 36rem) {
-  .activity-grid {
-    overflow-x: auto;
-    grid-auto-columns: var(--cell-min);
-    padding-bottom: var(--space-2xs);
-    scrollbar-width: thin;
-  }
-
-  .activity-legend {
-    justify-content: flex-start;
-  }
+.activity-tooltip-text {
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: var(--space-2xs) var(--space-xs);
+  border: var(--rule) solid var(--hairline);
+  border-radius: var(--radius-s);
+  background: var(--raised);
+  font-size: var(--text-xs);
+  overflow-wrap: anywhere;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
 }
 
-@media (max-width: 36rem),
-(hover: none) {
-  .activity-cell[data-day]::after {
-    content: none;
-  }
-
-  .activity-cell[data-day] {
-    cursor: default;
-  }
-}
-
-/* featured work island ----------------------------------------------------- */
+/* Work */
 
 .work {
   --work-row: 3.4rem;
@@ -575,6 +569,7 @@ main>section+section {
 }
 
 .work-link {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -587,6 +582,13 @@ main>section+section {
 
 .work-name {
   font-weight: 700;
+}
+
+.work-name,
+.work-description {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .work-description {
@@ -605,14 +607,13 @@ main>section+section {
   pointer-events: none;
   box-shadow: 0 8px 30px rgb(0 0 0 / 0.3);
   z-index: 5;
-  will-change: transform, translate, opacity, filter;
 
   opacity: 0;
   filter: blur(4px);
   translate: 6px 0;
 
   transition-property: transform, translate, opacity, filter;
-  transition-duration: 0.5s, 0.4s, 0.35s, 0.35s;
+  transition-duration: var(--slow), var(--slow), var(--medium), var(--medium);
   transition-timing-function: var(--ease);
 }
 
@@ -635,13 +636,28 @@ main>section+section {
   opacity: 1;
 }
 
-@media (hover: none) {
+@media (max-width: 36rem), (hover: none) {
+  .work-item {
+    height: auto;
+  }
+
+  .work-link {
+    min-height: var(--work-row);
+    padding-block: var(--space-xs);
+  }
+
+  .work-name,
+  .work-description {
+    overflow: visible;
+    white-space: normal;
+  }
+
   .work-preview {
     display: none;
   }
 }
 
-/* socials ------------------------------------------------------------------ */
+/* Social links */
 
 .socials {
   display: flex;
@@ -672,7 +688,7 @@ main>section+section {
   display: block;
 }
 
-/* entries ------------------------------------------------------------------ */
+/* Entries */
 
 .entries {
   list-style: none;
@@ -762,17 +778,22 @@ main>section+section {
   margin-top: var(--space-s);
 }
 
-/* article ------------------------------------------------------------------ */
+/* Articles */
 
-.post>*+* {
+.post > * + *,
+.post :where(blockquote, li) > * + * {
   margin-block-start: var(--space-m);
 }
 
-.post>h2+* {
-  margin-block-start: var(--space-m);
+.post :where(ul, ol) {
+  padding-inline-start: var(--space-l);
 }
 
-.post>h2 {
+.post li + li {
+  margin-block-start: var(--space-xs);
+}
+
+.post > :where(h2, h3, h4, h5, h6) {
   margin-block-start: var(--space-l);
 }
 
@@ -785,7 +806,7 @@ main>section+section {
 }
 
 .post-meta {
-  margin: 0.3rem 0 0;
+  margin: var(--space-2xs) 0 0;
   font-size: var(--text-s);
   opacity: var(--muted);
 }
@@ -802,7 +823,7 @@ main>section+section {
   font-size: 0.85em;
 }
 
-.post :not(pre)>code {
+.post :not(pre) > code {
   padding: 0.1em 0.3em;
   border-radius: var(--radius-s);
   background: var(--stone);
@@ -816,7 +837,6 @@ main>section+section {
   opacity: 0.8;
 }
 
-/* Accent links with an underline that sweeps in on hover. */
 .post a,
 .footer a {
   color: var(--accent);
@@ -838,7 +858,7 @@ main>section+section {
   background-size: 100% var(--rule);
 }
 
-/* tags --------------------------------------------------------------------- */
+/* Tags */
 
 .archive-tags,
 .tags {
@@ -878,7 +898,7 @@ button.tag:hover {
   border-color: var(--accent);
 }
 
-/* archive island ----------------------------------------------------------- */
+/* Archive */
 
 .archive-controls {
   display: flex;
@@ -892,7 +912,7 @@ button.tag:hover {
   flex: 1 1 12rem;
   min-width: 0;
   padding: 0.4em 0.6em;
-  border-radius: 6px;
+  border-radius: var(--radius-s);
   border: 1px solid var(--hairline-strong);
   background: transparent;
   color: inherit;
@@ -901,7 +921,6 @@ button.tag:hover {
 }
 
 .archive-search:focus-visible {
-  outline: none;
   border-color: var(--accent);
 }
 
@@ -910,7 +929,7 @@ button.tag:hover {
   opacity: var(--muted);
 }
 
-/* footer ------------------------------------------------------------------- */
+/* Footer */
 
 .footer {
   display: flex;
@@ -930,14 +949,13 @@ button.tag:hover {
   gap: 0.9rem;
 }
 
-/* age island --------------------------------------------------------------- */
+/* Age */
 
 .age {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
-/* Each digit is a one-cell window onto a two-cell strip that rolls down. */
 .digit {
   --digit-shift: 0.2em;
   display: inline-block;
@@ -977,16 +995,17 @@ button.tag:hover {
   vertical-align: baseline;
 }
 
-/* flag --------------------------------------------------------------------- */
+/* Flag */
 
 .flag {
   display: inline-block;
   width: 1.35em;
-  height: calc(1.35em * 2 / 3);
+  height: auto;
+  aspect-ratio: 3 / 2;
   vertical-align: -0.12em;
 }
 
-/* not found ---------------------------------------------------------------- */
+/* Not found */
 
 .lost-code {
   display: flex;
@@ -1026,7 +1045,58 @@ button.tag:hover {
   color: color-mix(in srgb, var(--text) 70%, transparent);
 }
 
-/* syntax highlighting ------------------------------------------------------ */
+/* Reduced motion */
+
+@keyframes presence-dismiss {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .presence-status,
+  .presence-status::after,
+  .presence-track,
+  .activity-grid .activity-cell,
+  .digit-strip,
+  .lost-strip {
+    animation: none;
+  }
+
+  .presence-status::after {
+    content: none;
+  }
+
+  .presence-track.is-ending {
+    animation-name: presence-dismiss;
+    animation-duration: 1ms;
+    animation-fill-mode: forwards;
+  }
+
+  .work-preview,
+  .activity-tooltip,
+  .social-link,
+  .work-link,
+  .entry,
+  .back,
+  .more,
+  .post a,
+  .footer a,
+  button.tag {
+    transition: none;
+  }
+
+  .work-preview,
+  .activity-tooltip {
+    filter: none;
+    translate: none;
+  }
+}
+
+/* Syntax highlighting */
 
 .hljs {
   color: var(--text);

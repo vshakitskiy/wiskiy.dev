@@ -1,6 +1,3 @@
-//// The api server. It starts as an OTP application, serves the GitHub activity 
-//// endpoint and the built site in development environment.
-
 import api/activity
 import api/web
 import ewe
@@ -13,13 +10,12 @@ import gleam/result
 import wisp
 import wisp/wisp_ewe
 
-/// Keeps the node alive while the application supervisor does the work.
+/// OTP starts the server. This only keeps the VM alive.
 pub fn main() -> Nil {
   process.sleep_forever()
 }
 
-/// Starts the web server and, when credentials are set, the activity worker.
-/// Called by OTP as the application start callback.
+/// OTP application start callback.
 pub fn start(
   _start_type: application.StartType,
   _start_arguments: List(Nil),
@@ -28,13 +24,11 @@ pub fn start(
 
   let context = web.create_context()
   let secret_key_base = wisp.random_string(64)
-  let listener_name = process.new_name("ewe_listener")
-  let connection_factory_name = process.new_name("ewe_connection_factory")
 
   let server =
     handle_request(context, _)
     |> wisp_ewe.handler(secret_key_base)
-    |> ewe.new(listener_name, connection_factory_name, _)
+    |> ewe.new
     |> ewe.listening(on: context.port)
     |> ewe.bind(to: "::")
 
@@ -45,7 +39,7 @@ pub fn start(
   |> result.map(fn(started) { started.pid })
 }
 
-/// Called by OTP as the application stop callback.
+/// OTP application stop callback.
 pub fn stop(_state: Nil) -> Nil {
   Nil
 }

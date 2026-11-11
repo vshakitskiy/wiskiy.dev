@@ -1,7 +1,4 @@
-//// The GitHub contribution calendar behind `/api/activity`.
-////
-//// A worker fetches the calendar once a day and keeps the ready to send JSON
-//// in `persistent_term` so requests read it without touching GitHub.
+//// Daily GitHub calendar cache backed by `persistent_term`.
 
 import gleam/bit_array
 import gleam/crypto
@@ -28,7 +25,8 @@ const initialise_timeout_milliseconds = 1000
 
 const user_agent = "wiskiy.dev"
 
-const contributions_query = "query($login: String!) {
+const contributions_query =
+  "query($login: String!) {
   user(login: $login) {
     contributionsCollection {
       contributionCalendar {
@@ -39,21 +37,17 @@ const contributions_query = "query($login: String!) {
   }
 }"
 
-// CREDENTIALS -----------------------------------------------------------------
-
 pub opaque type Credentials {
   Credentials(login: String, token: String)
 }
 
-/// Builds credentials from a GitHub login and token. Fails if either is blank.
+/// Fails if either value is blank.
 pub fn credentials(login: String, token: String) -> Result(Credentials, Nil) {
   case string.trim(login), string.trim(token) {
     "", _token | _login, "" -> Error(Nil)
     login, token -> Ok(Credentials(login:, token:))
   }
 }
-
-// STORE -----------------------------------------------------------------------
 
 type Snapshot {
   Missing
@@ -79,8 +73,6 @@ fn persistent_put(key: Key, value: Snapshot) -> atom.Atom
 @external(erlang, "persistent_term", "get")
 fn persistent_get(key: Key, default: Snapshot) -> Snapshot
 
-// WORKER ----------------------------------------------------------------------
-
 pub opaque type Message {
   Refresh
 }
@@ -89,7 +81,6 @@ type State {
   State(self: process.Subject(Message), credentials: Credentials)
 }
 
-/// A supervisor child that refreshes the calendar daily.
 pub fn supervised(
   credentials: Credentials,
 ) -> supervision.ChildSpecification(process.Subject(Message)) {
@@ -119,25 +110,25 @@ fn handle_message(
       let delay = case fetch(state.credentials) {
         Ok(snapshot) -> {
           put(snapshot)
+
           refresh_interval_milliseconds
         }
         Error(error) -> {
           wisp.log_error(
             "github activity refresh failed: " <> string.inspect(error),
           )
+
           retry_interval_milliseconds
         }
       }
 
       let _timer = process.send_after(state.self, delay, Refresh)
+
       actor.continue(state)
     }
   }
 }
 
-// HANDLER ---------------------------------------------------------------------
-
-/// Responds with the stored calendar.
 pub fn handle_request(request: wisp.Request) -> wisp.Response {
   case snapshot() {
     Missing -> wisp.response(503)
@@ -150,8 +141,6 @@ pub fn handle_request(request: wisp.Request) -> wisp.Response {
       |> response.set_header("cache-control", "public, max-age=3600")
   }
 }
-
-// FETCHING --------------------------------------------------------------------
 
 type RefreshError {
   RequestFailed(reason: httpc.HttpError)
@@ -189,7 +178,6 @@ fn fetch(credentials: Credentials) -> Result(Snapshot, RefreshError) {
   }
 }
 
-/// Condenses GitHub's reply into `{ start, total, counts }`.
 fn snapshot_from_response(body: String) -> Result(Snapshot, RefreshError) {
   use days <- result.try(
     json.parse(body, calendar_decoder())
@@ -200,6 +188,7 @@ fn snapshot_from_response(body: String) -> Result(Snapshot, RefreshError) {
     [] -> Ok(Missing)
     [Day(date: start, ..), ..] -> {
       let total = list.fold(days, 0, fn(total, day) { total + day.count })
+
       let json =
         json.object([
           #("start", json.string(start)),
@@ -222,8 +211,6 @@ fn etag(json: String) -> String {
   "\"" <> digest <> "\""
 }
 
-// DECODING --------------------------------------------------------------------
-
 type Day {
   Day(date: String, count: Int)
 }
@@ -233,16 +220,19 @@ fn calendar_decoder() -> decode.Decoder(List(Day)) {
     ["data", "user", "contributionsCollection", "contributionCalendar", "weeks"],
     decode.list(week_decoder()),
   )
+
   decode.success(list.flatten(weeks))
 }
 
 fn week_decoder() -> decode.Decoder(List(Day)) {
   use days <- decode.field("contributionDays", decode.list(day_decoder()))
+
   decode.success(days)
 }
 
 fn day_decoder() -> decode.Decoder(Day) {
   use date <- decode.field("date", decode.string)
   use count <- decode.field("contributionCount", decode.int)
+
   decode.success(Day(date:, count:))
 }

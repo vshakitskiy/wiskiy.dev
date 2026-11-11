@@ -1,5 +1,3 @@
-//// The RSS feed of the articles.
-
 import gleam/list
 import lustre/attribute
 import lustre/element
@@ -12,7 +10,6 @@ const description = "My writings about Gleam, servers and whatever else."
 
 const author = "vshakitskiy@gmail.com"
 
-/// Builds the `<rss>` document, newest article first.
 pub fn from_posts(posts: List(writing.Post)) -> element.Element(a) {
   element.element("rss", [attribute.attribute("version", "2.0")], [
     element.element("channel", [], [
@@ -53,5 +50,5 @@ fn text_element(name: String, text: String) -> element.Element(a) {
 }
 
 fn link(url: String) -> element.Element(a) {
-  element.unsafe_raw_html("", "link", [], url)
+  element.advanced("", "link", [], [html.text(url)], False, False)
 }

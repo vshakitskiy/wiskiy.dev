@@ -1,5 +1,4 @@
-//// Every page of the site. Islands are prerendered with their initial model
-//// so the page looks fine before any JavaScript runs.
+//// Static pages with prerendered islands.
 
 import gleam/int
 import gleam/list
@@ -9,23 +8,19 @@ import lustre/element
 import lustre/element/html
 import lustre/element/svg
 import web/date
-import web/islands/activity
-import web/islands/age
-import web/islands/archive
-import web/islands/guestbook
-import web/islands/presence
-import web/islands/work
+import web/island/activity
+import web/island/age
+import web/island/archive
+import web/island/guestbook
+import web/island/presence
+import web/island/work
 import web/layout
-import web/socials
+import web/social
 import web/writing
-
-// TODO: any webrings???
 
 const recent_articles = 4
 
 const flag_clip = "flag-corners"
-
-// HOME ------------------------------------------------------------------------
 
 pub fn home(posts: List(writing.Post)) -> element.Element(Nil) {
   let #(presence_model, _presence_effect) = presence.init(Nil)
@@ -38,10 +33,10 @@ pub fn home(posts: List(writing.Post)) -> element.Element(Nil) {
     description: "software engineer & gleam enthusiast",
     kind: layout.Website(path: "/"),
     islands: [
-      layout.Island("presence"),
-      layout.Island("activity"),
-      layout.Island("work"),
-      layout.Island("age"),
+      layout.Island("web/island/presence"),
+      layout.Island("web/island/activity"),
+      layout.Island("web/island/work"),
+      layout.Island("web/island/age"),
     ],
     body: [
       html.section([], [
@@ -50,7 +45,7 @@ pub fn home(posts: List(writing.Post)) -> element.Element(Nil) {
           |> layout.strip_message,
         ]),
         html.p([], [html.text("software engineer & gleam enthusiast")]),
-        socials.view(),
+        social.view(),
       ]),
       html.section([], [
         html.p([], [
@@ -88,7 +83,6 @@ pub fn home(posts: List(writing.Post)) -> element.Element(Nil) {
   )
 }
 
-/// A flag with rounded corners sized to sit inline with text.
 fn flag() -> element.Element(a) {
   svg.svg(
     [
@@ -125,8 +119,6 @@ fn band(top top: Int, colour colour: String) -> element.Element(a) {
   ])
 }
 
-// GUESTBOOK -------------------------------------------------------------------
-
 pub fn guestbook() -> element.Element(Nil) {
   let #(model, _effect) = guestbook.init(Nil)
 
@@ -134,7 +126,7 @@ pub fn guestbook() -> element.Element(Nil) {
     title: "Guestbook",
     description: "Leave a message.",
     kind: layout.Website(path: "/guestbook"),
-    islands: [layout.Island("guestbook")],
+    islands: [layout.Island("web/island/guestbook")],
     body: [
       html.h1([], [html.text("Guestbook")]),
       html.section([attribute.id(guestbook.mount_id)], [
@@ -144,8 +136,6 @@ pub fn guestbook() -> element.Element(Nil) {
     ],
   )
 }
-
-// NOT FOUND -------------------------------------------------------------------
 
 pub fn not_found(posts: List(writing.Post)) -> element.Element(Nil) {
   layout.page(
@@ -183,8 +173,6 @@ pub fn not_found(posts: List(writing.Post)) -> element.Element(Nil) {
   )
 }
 
-/// A column of digits that spins down and lands on `digit` like a slot
-/// machine reel. The strip starts `spins - 1` cells up and slides into place.
 fn reel(
   digit: Int,
   spins spins: Int,
@@ -218,8 +206,6 @@ fn reel(
   )
 }
 
-// WRITING ---------------------------------------------------------------------
-
 pub fn writing(posts: List(writing.Post)) -> element.Element(Nil) {
   let model = archive.from_entries(list.map(posts, to_entry))
 
@@ -227,7 +213,7 @@ pub fn writing(posts: List(writing.Post)) -> element.Element(Nil) {
     title: "Writing",
     description: "Things I've written down.",
     kind: layout.Website(path: writing.index),
-    islands: [layout.Island("archive")],
+    islands: [layout.Island("web/island/archive")],
     body: [
       back(to: "/", label: "home"),
       html.h1([], [html.text("Writing")]),
@@ -246,37 +232,42 @@ pub fn writing(posts: List(writing.Post)) -> element.Element(Nil) {
   )
 }
 
-pub fn post(post: writing.Post) -> element.Element(Nil) {
-  layout.page(
-    title: post.title,
-    description: post.description,
-    kind: layout.Article(
-      path: writing.path(post),
-      published: post.date,
-      tags: post.tags,
-    ),
-    islands: list.map(post.islands, layout.Island),
-    body: [
-      back(to: writing.index, label: "writing"),
-      html.article([attribute.class("post")], [
-        html.header([attribute.class("post-header")], [
-          html.h1([], [html.text(post.title)]),
-          html.p([attribute.class("post-meta")], [
-            html.time(
-              [attribute.attribute("datetime", date.to_iso8601(post.date))],
-              [html.text(date.to_human(post.date))],
-            ),
+pub fn post(
+  post: writing.Post,
+) -> Result(element.Element(Nil), writing.RenderError) {
+  use content <- result.try(writing.render(post))
+
+  Ok(
+    layout.page(
+      title: post.title,
+      description: post.description,
+      kind: layout.Article(
+        path: writing.path(post),
+        published: post.date,
+        tags: post.tags,
+      ),
+      islands: list.map(post.islands, layout.Island),
+      body: [
+        back(to: writing.index, label: "writing"),
+        html.article([attribute.class("post")], [
+          html.header([attribute.class("post-header")], [
+            html.h1([], [html.text(post.title)]),
+            html.p([attribute.class("post-meta")], [
+              html.time(
+                [attribute.attribute("datetime", date.to_iso8601(post.date))],
+                [html.text(date.to_human(post.date))],
+              ),
+            ]),
+            tag_list(post.tags),
           ]),
-          tag_list(post.tags),
+          ..content
         ]),
-        ..writing.render(post)
-      ]),
-      ..highlighting(post)
-    ],
+        ..highlighting(post)
+      ],
+    ),
   )
 }
 
-/// highlight.js loaded only on articles that have code blocks.
 fn highlighting(post: writing.Post) -> List(element.Element(a)) {
   case writing.has_code(post) {
     False -> []
@@ -301,9 +292,6 @@ fn tag_list(tags: List(String)) -> element.Element(a) {
   }
 }
 
-// SHARED ----------------------------------------------------------------------
-
-/// The newest few articles.
 fn recent(posts: List(writing.Post)) -> element.Element(a) {
   list.take(posts, recent_articles)
   |> list.map(to_entry)

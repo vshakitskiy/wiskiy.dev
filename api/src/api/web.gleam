@@ -1,5 +1,4 @@
-//// Server configuration read from the environment and static file serving
-//// for development.
+//// Environment configuration and development-only static serving.
 
 import api/activity
 import envoy
@@ -26,13 +25,11 @@ pub type Context {
   Context(mode: Mode, port: Int, static_directory: String, activity: Activity)
 }
 
-/// Whether the GitHub activity worker has needed credentials.
 pub type Activity {
   Unconfigured
   Configured(credentials: activity.Credentials)
 }
 
-/// Reads environment variables falling back to defaults.
 pub fn create_context() -> Context {
   Context(
     mode: case envoy.get("MODE") {
@@ -52,6 +49,7 @@ fn create_activity() -> Activity {
   let credentials = {
     use login <- result.try(envoy.get("GITHUB_LOGIN"))
     use token <- result.try(envoy.get("GITHUB_TOKEN"))
+
     activity.credentials(login, token)
   }
 
@@ -61,7 +59,7 @@ fn create_activity() -> Activity {
   }
 }
 
-/// Serves the built site, matching on the html files without extension.
+/// Serves the static build, including extensionless HTML routes.
 pub fn serve(request: wisp.Request, from directory: String) -> wisp.Response {
   use <- wisp.serve_static(request, under: "", from: directory)
   use <- wisp.serve_static(as_html(request), under: "", from: directory)
@@ -73,7 +71,6 @@ pub fn serve(request: wisp.Request, from directory: String) -> wisp.Response {
   |> response.set_body(wisp.File(path:, offset: 0, limit: option.None))
 }
 
-/// Points an extensionless path at its `.html` file and `/` at `index.html`.
 fn as_html(request: wisp.Request) -> wisp.Request {
   let segments = wisp.path_segments(request)
 

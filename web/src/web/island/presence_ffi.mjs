@@ -1,3 +1,5 @@
+import { after_visible } from "../browser_ffi.mjs";
+
 export function connect(url, on_open, on_message, on_close) {
   let socket;
 
@@ -36,6 +38,5 @@ export function heartbeat(socket, milliseconds, payload) {
 }
 
 export function tick(milliseconds, run) {
-  setTimeout(() => run(Date.now()), milliseconds);
-  return undefined;
+  return after_visible(milliseconds, () => run(Date.now()));
 }

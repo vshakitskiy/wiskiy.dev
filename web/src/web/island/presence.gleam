@@ -1,8 +1,4 @@
-//// My Discord presence streamed live from Lanyard's websocket.
-////
-//// Until the first payload arrives only the username shows. Once a presence
-//// lands, a status dot appears next to the name and a SoundCloud activity
-//// adds the current track above it.
+//// Discord presence via Lanyard.
 
 import gleam/dynamic/decode
 import gleam/int
@@ -17,6 +13,7 @@ import lustre/effect
 import lustre/element
 import lustre/element/html
 import lustre/element/keyed
+import lustre/event
 import web/browser
 
 pub const mount_id = "presence"
@@ -31,28 +28,29 @@ const reconnect_delay_milliseconds = 5000
 
 const tick_interval_milliseconds = 1000
 
-const track_exit_milliseconds = 400
-
-/// Discord's activity type for "Listening to".
 const listening_activity = 2
 
-// SoundCloud's Discord application id. Not yet confirmed to be the same
-// across devices.
+// TODO: Verify whether this application ID is shared across devices.
 const soundcloud_application_id = "1090770350251458592"
 
 pub fn main() -> Nil {
   let app = lustre.application(init:, update:, view:)
+
   let assert Ok(_started) = lustre.start(app, onto: "#" <> mount_id, with: Nil)
+
   Nil
 }
 
-// MODEL -----------------------------------------------------------------------
-
-/// A browser `WebSocket`.
+/// Browser `WebSocket`.
 pub type Socket
 
 pub type Model {
-  Model(connection: Connection, presence: Presence, clock: Clock)
+  Model(
+    connection: Connection,
+    presence: Presence,
+    clock: Clock,
+    presence_revision: Int,
+  )
 }
 
 pub type Connection {
@@ -84,10 +82,9 @@ pub type Listening {
   )
 }
 
-/// A track that stops playing stays around as `Ending` while it animates out.
 pub type Playback {
   Playing
-  Ending
+  Ending(revision: Int)
 }
 
 pub type Timing {
@@ -102,12 +99,15 @@ pub type Clock {
 
 pub fn init(_flags: Nil) -> #(Model, effect.Effect(Message)) {
   #(
-    Model(connection: Connecting, presence: Unknown, clock: Paused),
+    Model(
+      connection: Connecting,
+      presence: Unknown,
+      clock: Paused,
+      presence_revision: 0,
+    ),
     open_socket(),
   )
 }
-
-// UPDATE ----------------------------------------------------------------------
 
 pub type Message {
   SocketOpened(socket: Socket)
@@ -115,7 +115,7 @@ pub type Message {
   SocketClosed
   ReconnectDelayElapsed
   Ticked(now_milliseconds: Int)
-  TrackEnded
+  TrackEnded(revision: Int)
 }
 
 pub fn update(
@@ -136,9 +136,11 @@ pub fn update(
           start_heartbeat(model.connection, heartbeat_interval),
         )
         Ok(PresenceReceived(presence:)) -> {
-          let #(presence, exit) = settle(model.presence, presence)
-          let model = Model(..model, presence:)
-          #(model, effect.batch([start_clock(model), exit]))
+          let presence_revision = model.presence_revision + 1
+          let presence = settle(model.presence, presence, presence_revision)
+          let model = Model(..model, presence:, presence_revision:)
+
+          #(model, start_clock(model))
         }
       }
 
@@ -152,11 +154,19 @@ pub fn update(
       open_socket(),
     )
 
-    TrackEnded ->
+    TrackEnded(revision:) ->
       case model.presence {
-        Unknown -> #(model, effect.none())
-        Known(status:, listening: _finished) -> #(
+        Known(status:, listening: Track(playback: Ending(active_revision), ..))
+          if active_revision == revision
+        -> #(
           Model(..model, presence: Known(status:, listening: Nothing)),
+          effect.none(),
+        )
+        Unknown
+        | Known(listening: Nothing, ..)
+        | Known(listening: Track(playback: Playing, ..), ..)
+        | Known(listening: Track(playback: Ending(_other_revision), ..), ..) -> #(
+          model,
           effect.none(),
         )
       }
@@ -180,31 +190,32 @@ fn timing_of(presence: Presence) -> Timing {
   }
 }
 
-/// Applies a new presence. When the track has just stopped it is kept as 
-/// `Ending` and `TrackEnded` removes it once the exit animation is done.
-fn settle(
-  previous: Presence,
-  next: Presence,
-) -> #(Presence, effect.Effect(Message)) {
+fn settle(previous: Presence, next: Presence, revision: Int) -> Presence {
   case previous, next {
     Known(
       listening: Track(title:, artist:, artwork:, timing:, playback: Playing),
       ..,
     ),
       Known(status:, listening: Nothing)
-    -> #(
+    ->
       Known(
         status:,
-        listening: Track(title:, artist:, artwork:, timing:, playback: Ending),
-      ),
-      end_track_after(track_exit_milliseconds),
-    )
+        listening: Track(
+          title:,
+          artist:,
+          artwork:,
+          timing:,
+          playback: Ending(revision),
+        ),
+      )
 
-    _earlier, _later -> #(next, effect.none())
+    Known(listening: Track(playback: Ending(_revision), ..) as listening, ..),
+      Known(status:, listening: Nothing)
+    -> Known(status:, listening:)
+
+    _earlier, _later -> next
   }
 }
-
-// EFFECTS ---------------------------------------------------------------------
 
 fn open_socket() -> effect.Effect(Message) {
   use dispatch <- effect.from
@@ -251,19 +262,12 @@ fn tick_after(milliseconds: Int) -> effect.Effect(Message) {
   dispatch(Ticked(now_milliseconds: now))
 }
 
-fn end_track_after(milliseconds: Int) -> effect.Effect(Message) {
-  use dispatch <- effect.from
-  use <- browser.after(milliseconds:)
-  dispatch(TrackEnded)
-}
-
 fn reconnect_after(milliseconds: Int) -> effect.Effect(Message) {
   use dispatch <- effect.from
   use <- browser.after(milliseconds:)
   dispatch(ReconnectDelayElapsed)
 }
 
-/// Opcode 2 subscribes to presence updates for one user.
 fn initialize_payload() -> String {
   json.object([
     #("op", json.int(2)),
@@ -272,13 +276,10 @@ fn initialize_payload() -> String {
   |> json.to_string
 }
 
-/// Opcode 3 keeps the connection alive.
 fn heartbeat_payload() -> String {
   json.object([#("op", json.int(3))])
   |> json.to_string
 }
-
-// LANYARD PROTOCOL ------------------------------------------------------------
 
 type Event {
   Hello(heartbeat_interval: Int)
@@ -302,7 +303,6 @@ fn event_decoder() -> decode.Decoder(Event) {
   use opcode <- decode.field("op", decode.int)
 
   case opcode {
-    // Hello, sent once the socket opens.
     1 -> {
       use heartbeat_interval <- decode.subfield(
         ["d", "heartbeat_interval"],
@@ -311,7 +311,6 @@ fn event_decoder() -> decode.Decoder(Event) {
       decode.success(Hello(heartbeat_interval:))
     }
 
-    // Event, carrying a presence among other things.
     0 -> {
       use name <- decode.field("t", decode.string)
       case name {
@@ -330,11 +329,13 @@ fn event_decoder() -> decode.Decoder(Event) {
 fn presence_decoder() -> decode.Decoder(Presence) {
   use status <- decode.field("discord_status", status_decoder())
   use activities <- decode.field("activities", decode.list(activity_decoder()))
+
   decode.success(Known(status:, listening: now_listening(activities)))
 }
 
 fn status_decoder() -> decode.Decoder(Status) {
   use status <- decode.then(decode.string)
+
   case status {
     "online" -> decode.success(Online)
     "idle" -> decode.success(Idle)
@@ -351,6 +352,7 @@ fn activity_decoder() -> decode.Decoder(Activity) {
   use state <- optional_field("state", decode.string)
   use artwork <- decode.optional_field("assets", option.None, artwork_decoder())
   use timing <- decode.optional_field("timestamps", Untimed, timing_decoder())
+
   decode.success(Activity(
     kind:,
     application_id:,
@@ -362,7 +364,6 @@ fn activity_decoder() -> decode.Decoder(Activity) {
   ))
 }
 
-/// A field that may be missing or `null`.
 fn optional_field(
   name: String,
   decoder: decode.Decoder(value),
@@ -373,6 +374,7 @@ fn optional_field(
 
 fn artwork_decoder() -> decode.Decoder(option.Option(String)) {
   use large_image <- optional_field("large_image", decode.string)
+
   decode.success(
     option.then(large_image, fn(asset) {
       option.from_result(artwork_url(asset))
@@ -380,8 +382,7 @@ fn artwork_decoder() -> decode.Decoder(option.Option(String)) {
   )
 }
 
-/// Discord proxies external images as `mp:external/<hash>/<scheme>/<rest>`.
-/// This function turns that back into the original URL.
+// Decode Discord's `mp:external/<hash>/<scheme>/<path>` proxy URLs.
 fn artwork_url(asset: String) -> Result(String, Nil) {
   case asset {
     "mp:external/" <> proxied -> {
@@ -414,7 +415,6 @@ fn timing_decoder() -> decode.Decoder(Timing) {
   }
 }
 
-/// The SoundCloud track being played, if any.
 fn now_listening(activities: List(Activity)) -> Listening {
   let soundcloud_activity =
     list.find(activities, fn(activity) {
@@ -442,8 +442,6 @@ fn now_listening(activities: List(Activity)) -> Listening {
       )
   }
 }
-
-// VIEW ------------------------------------------------------------------------
 
 pub fn view(model: Model) -> element.Element(Message) {
   let children = case model.presence {
@@ -518,27 +516,36 @@ fn track_view(
   timing: Timing,
   playback: Playback,
   clock: Clock,
-) -> element.Element(a) {
-  html.div(
-    [
-      attribute.class(case playback {
-        Playing -> "presence-track"
-        Ending -> "presence-track is-ending"
+) -> element.Element(Message) {
+  let attributes = case playback {
+    Playing -> [attribute.class("presence-track")]
+    Ending(revision:) -> [
+      attribute.class("presence-track is-ending"),
+      event.on("animationend", {
+        use name <- decode.field("animationName", decode.string)
+
+        case name {
+          "fall-out" | "presence-dismiss" ->
+            decode.success(TrackEnded(revision:))
+          _other ->
+            decode.failure(TrackEnded(revision:), "track exit animation")
+        }
       }),
-    ],
-    [
-      artwork_view(artwork, title),
-      html.div([attribute.class("presence-track-text")], [
-        html.span([attribute.class("presence-track-title")], [html.text(title)]),
-        html.div([attribute.class("presence-track-meta")], [
-          html.span([attribute.class("presence-track-artist")], [
-            html.text(artist),
-          ]),
-          position_view(timing, clock),
+    ]
+  }
+
+  html.div(attributes, [
+    artwork_view(artwork, title),
+    html.div([attribute.class("presence-track-text")], [
+      html.span([attribute.class("presence-track-title")], [html.text(title)]),
+      html.div([attribute.class("presence-track-meta")], [
+        html.span([attribute.class("presence-track-artist")], [
+          html.text(artist),
         ]),
+        position_view(timing, clock),
       ]),
-    ],
-  )
+    ]),
+  ])
 }
 
 fn artwork_view(
@@ -566,6 +573,7 @@ fn position_view(timing: Timing, clock: Clock) -> element.Element(a) {
       if end_milliseconds > start_milliseconds
     -> {
       let duration = end_milliseconds - start_milliseconds
+
       let elapsed =
         int.clamp(now_milliseconds - start_milliseconds, min: 0, max: duration)
 
@@ -575,6 +583,7 @@ fn position_view(timing: Timing, clock: Clock) -> element.Element(a) {
             attribute.class("presence-track-bar"),
             attribute.value(int.to_string(elapsed)),
             attribute.max(int.to_string(duration)),
+            attribute.attribute("aria-label", "Track playback progress"),
           ],
           [],
         ),
@@ -589,15 +598,14 @@ fn position_view(timing: Timing, clock: Clock) -> element.Element(a) {
   }
 }
 
-/// Formats a duration as `m:ss`.
+// Formats milliseconds as `m:ss`.
 fn position_text(milliseconds: Int) -> String {
   let seconds = milliseconds / 1000
+
   int.to_string(seconds / 60)
   <> ":"
   <> string.pad_start(int.to_string(seconds % 60), to: 2, with: "0")
 }
-
-// FFI -------------------------------------------------------------------------
 
 @external(javascript, "./presence_ffi.mjs", "connect")
 fn connect(

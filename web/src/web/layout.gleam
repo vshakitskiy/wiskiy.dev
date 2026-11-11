@@ -1,5 +1,4 @@
-//// The HTML layout every page shares.
-
+import filepath
 import gleam/list
 import gleam/time/calendar
 import lustre/attribute
@@ -11,27 +10,22 @@ pub const site_name = "wiskiy.dev"
 
 pub const site_url = "https://wiskiy.dev"
 
-/// Where the RSS feed is published.
 pub const feed_path = "/feed.xml"
 
 const source = "https://github.com/vshakitskiy/wiskiy.dev"
 
-/// An island's compiled module loaded from `/js/<module>.js`.
+/// Bundled as `/js/<module basename>.js`.
 pub type Island {
   Island(module: String)
 }
 
-/// What a page is. This is for the better link previews.
+/// Page metadata for canonical URLs and link previews.
 pub type Kind {
-  /// A regular page served at `path`.
   Website(path: String)
-  /// An article served at `path`.
   Article(path: String, published: calendar.Date, tags: List(String))
-  /// The not found page.
   NotFound
 }
 
-/// Wraps `body` in a full HTML document.
 pub fn page(
   title title: String,
   description description: String,
@@ -45,7 +39,7 @@ pub fn page(
   ])
 }
 
-/// Drops an island view's message type so it can be prerendered into a page.
+/// Removes event messages for static rendering.
 pub fn strip_message(view: element.Element(a)) -> element.Element(Nil) {
   element.map(view, fn(_message) { Nil })
 }
@@ -73,7 +67,7 @@ fn head(title: String, description: String, kind: Kind) -> element.Element(a) {
       attribute.type_("application/rss+xml"),
       attribute.href(feed_path),
     ]),
-    // Prerender same site pages on hover so navigation feels instant.
+    // Prerender same-origin links on hover.
     html.script(
       [attribute.type_("speculationrules")],
       "{\"prerender\":[{\"where\":{\"href_matches\":\"/*\"},\"eagerness\":\"moderate\"}]}",
@@ -82,8 +76,6 @@ fn head(title: String, description: String, kind: Kind) -> element.Element(a) {
   ])
 }
 
-/// Open Graph tags which chat apps and social sites read to build link previews. 
-/// Twitter falls back to these for everything but the card type.
 fn open_graph(
   title: String,
   description: String,
@@ -110,7 +102,6 @@ fn open_graph(
   list.append(shared, specific)
 }
 
-/// The page's canonical URL for search engines and link previews alike.
 fn address(path: String) -> List(element.Element(a)) {
   let url = site_url <> path
 
@@ -126,8 +117,12 @@ fn property(name: String, content: String) -> element.Element(a) {
 
 fn scripts(islands: List(Island)) -> List(element.Element(a)) {
   use Island(module:) <- list.map(islands)
+
   html.script(
-    [attribute.src("/js/" <> module <> ".js"), attribute.type_("module")],
+    [
+      attribute.src("/js/" <> filepath.base_name(module) <> ".js"),
+      attribute.type_("module"),
+    ],
     "",
   )
 }

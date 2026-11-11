@@ -1,6 +1,3 @@
-//// My featured projects. On hover, a preview panel follows the pointer down
-//// the list and crossfades to the project under it.
-
 import gleam/int
 import gleam/list
 import lustre
@@ -38,18 +35,20 @@ const projects = [
 
 pub fn main() -> Nil {
   let app = lustre.application(init:, update:, view:)
+
   let assert Ok(_started) = lustre.start(app, onto: "#" <> mount_id, with: Nil)
+
   Nil
 }
 
-// MODEL -----------------------------------------------------------------------
+pub fn featured() -> List(Project) {
+  projects
+}
 
 pub type Model {
   Model(preview: Preview)
 }
 
-/// The panel remembers its row while hidden so it fades out in place instead 
-/// of jumping back to the top.
 pub type Preview {
   Hidden(at: Int)
   Shown(at: Int)
@@ -58,8 +57,6 @@ pub type Preview {
 pub fn init(_flags: Nil) -> #(Model, effect.Effect(Message)) {
   #(Model(preview: Hidden(at: 0)), effect.none())
 }
-
-// UPDATE ----------------------------------------------------------------------
 
 pub type Message {
   ProjectEntered(index: Int)
@@ -83,8 +80,6 @@ fn row_of(preview: Preview) -> Int {
     Hidden(at:) | Shown(at:) -> at
   }
 }
-
-// VIEW ------------------------------------------------------------------------
 
 type Visibility {
   Showing
@@ -111,6 +106,7 @@ fn row(project: Project, index: Int) -> element.Element(Message) {
         attribute.rel("noopener noreferrer"),
         event.on_mouse_enter(ProjectEntered(index:)),
         event.on_focus(ProjectEntered(index:)),
+        event.on_blur(ListLeft),
       ],
       [
         html.span([attribute.class("work-name")], [html.text(project.name)]),

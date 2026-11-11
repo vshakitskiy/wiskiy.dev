@@ -1,0 +1,49 @@
+name: checks
+
+on:
+  push:
+    branches: [mistress]
+  pull_request:
+
+jobs:
+  api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: api
+    steps:
+      - uses: actions/checkout@v7
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "29"
+          gleam-version: "1.19.2"
+          rebar3-version: "3"
+      - run: gleam deps download
+      - run: gleam format --check src test
+      - run: gleam check
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: "29"
+          gleam-version: "1.19.2"
+          rebar3-version: "3"
+      - run: gleam deps download
+        working-directory: web
+      - run: gleam format --check src dev test
+        working-directory: web
+      - run: make client
+
+  scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: deno fmt --check deno.json scripts .railway/railway.ts web/src web/priv/assets/style.css
+      - run: deno lint scripts .railway/railway.ts web/src
+      - run: deno check scripts/fetch_previews.ts

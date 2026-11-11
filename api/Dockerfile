@@ -1,4 +1,4 @@
-FROM ghcr.io/gleam-lang/gleam:v1.18.0-erlang-alpine AS build
+FROM ghcr.io/gleam-lang/gleam:v1.19.2-erlang-alpine AS build
 RUN apk add --no-cache git
 WORKDIR /build
 COPY api ./

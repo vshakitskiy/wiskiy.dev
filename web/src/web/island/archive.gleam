@@ -1,12 +1,8 @@
-//// The searchable list of articles on the writing page.
-////
-//// The page is prerendered with every article and the entries are also 
-//// embedded as JSON so the island can filter them without a request.
+//// Client-side search over the prerendered article index.
 
 import gleam/dynamic/decode
 import gleam/json
 import gleam/list
-import gleam/result
 import gleam/string
 import lustre
 import lustre/attribute
@@ -17,16 +13,20 @@ import lustre/event
 
 pub const mount_id = "archive"
 
-/// Id of the `<script>` tag that holds the entries as JSON.
 pub const index_id = "archive-index"
 
 pub fn main() -> Nil {
+  let decoded = json.parse(embedded(index_id), entries_decoder())
+  let assert Ok(entries) = decoded
+    as { "Could not read the article index: " <> string.inspect(decoded) }
+
   let app = lustre.application(init:, update:, view:)
-  let assert Ok(_started) = lustre.start(app, onto: "#" <> mount_id, with: Nil)
+
+  let assert Ok(_started) =
+    lustre.start(app, onto: "#" <> mount_id, with: entries)
+
   Nil
 }
-
-// MODEL -----------------------------------------------------------------------
 
 pub type Model {
   Model(entries: List(Entry), query: String, filter: Filter)
@@ -51,15 +51,9 @@ pub fn from_entries(entries: List(Entry)) -> Model {
   Model(entries:, query: "", filter: Everything)
 }
 
-pub fn init(_flags: Nil) -> #(Model, effect.Effect(Message)) {
-  let entries =
-    json.parse(embedded(index_id), entries_decoder())
-    |> result.unwrap([])
-
+pub fn init(entries: List(Entry)) -> #(Model, effect.Effect(Message)) {
   #(from_entries(entries), effect.none())
 }
-
-// UPDATE ----------------------------------------------------------------------
 
 pub type Message {
   QueryChanged(query: String)
@@ -84,10 +78,9 @@ pub fn update(
   #(model, effect.none())
 }
 
-// SEARCH ----------------------------------------------------------------------
-
 fn matching(model: Model) -> List(Entry) {
   use entry <- list.filter(model.entries)
+
   matches_query(entry, model.query) && matches_filter(entry, model.filter)
 }
 
@@ -116,15 +109,11 @@ fn matches_filter(entry: Entry, filter: Filter) -> Bool {
   }
 }
 
-/// Every tag in use in order of first appearance.
 fn tags(entries: List(Entry)) -> List(String) {
   list.flat_map(entries, fn(entry) { entry.tags })
   |> list.unique
 }
 
-// JSON ------------------------------------------------------------------------
-
-/// Encodes the entries for embedding in a `<script>` tag.
 pub fn to_json(entries: List(Entry)) -> String {
   json.array(entries, fn(entry) {
     json.object([
@@ -146,11 +135,10 @@ fn entries_decoder() -> decode.Decoder(List(Entry)) {
     use date <- decode.field("date", decode.string)
     use description <- decode.field("description", decode.string)
     use tags <- decode.field("tags", decode.list(decode.string))
+
     decode.success(Entry(path:, title:, date:, description:, tags:))
   })
 }
-
-// VIEW ------------------------------------------------------------------------
 
 pub fn view(model: Model) -> element.Element(Message) {
   html.div([attribute.class("archive")], [
@@ -175,7 +163,6 @@ pub fn view(model: Model) -> element.Element(Message) {
   ])
 }
 
-/// The list of article links, also used for recent writing on the home page.
 pub fn entry_list(entries: List(Entry)) -> element.Element(a) {
   html.ul([attribute.class("entries")], list.map(entries, entry_view))
 }
@@ -200,9 +187,11 @@ fn tag_button(
 ) -> element.Element(Message) {
   html.button(
     [
-      attribute.class(case active {
-        True -> "tag is-active"
-        False -> "tag"
+      attribute.classes([#("tag", True), #("is-active", active)]),
+      attribute.type_("button"),
+      attribute.aria_pressed(case active {
+        True -> "true"
+        False -> "false"
       }),
       event.on_click(message),
     ],
@@ -224,9 +213,6 @@ fn entry_view(entry: Entry) -> element.Element(a) {
   ])
 }
 
-// FFI -------------------------------------------------------------------------
-
-/// Text content of the element with the given id or `""` if there is none.
 @external(javascript, "./archive_ffi.mjs", "embedded")
 fn embedded(_id: String) -> String {
   ""

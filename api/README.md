@@ -1,24 +1,26 @@
 # api
 
-[![Package Version](https://img.shields.io/hexpm/v/api)](https://hex.pm/packages/api)
-[![Hex Docs](https://img.shields.io/badge/hex-docs-ffaff3)](https://api.hexdocs.pm/)
+The api server. It serves `/health` and `/api/activity` and also serves the
+built portfolio when `MODE=dev`.
 
 ```sh
-gleam add api@1
-```
-```gleam
-import api
-
-pub fn main() -> Nil {
-  // TODO: An example of the project in use
-}
+MODE=dev gleam run
 ```
 
-Further documentation can be found at <https://api.hexdocs.pm/>.
+| Variable           | Default       | Purpose                                     |
+| ------------------ | ------------- | ------------------------------------------- |
+| `MODE`             | production    | Set to `dev` to serve static files locally. |
+| `PORT`             | `8080`        | HTTP listener port.                         |
+| `STATIC_DIRECTORY` | `../web/dist` | Development site output.                    |
+| `GITHUB_LOGIN`     | unset         | Account whose contributions are fetched.    |
+| `GITHUB_TOKEN`     | unset         | GitHub API token.                           |
 
-## Development
+The activity worker starts only when both GitHub credentials are present and not
+empty. It caches the calendar and refreshes daily, retrying failed refreshes
+after fifteen minutes. Until a calendar is available, `/api/activity` returns
+503.
 
 ```sh
-gleam run   # Run the project
-gleam test  # Run the tests
+gleam format --check src test
+gleam check
 ```

@@ -1,5 +1,3 @@
-//// My age in years counting up live with rolling digits.
-
 import gleam/float
 import gleam/int
 import gleam/list
@@ -18,14 +16,10 @@ pub const mount_id = "age"
 
 const birthday = calendar.Date(year: 2006, month: calendar.August, day: 8)
 
-const midnight = calendar.TimeOfDay(
-  hours: 0,
-  minutes: 0,
-  seconds: 0,
-  nanoseconds: 0,
-)
+const midnight =
+  calendar.TimeOfDay(hours: 0, minutes: 0, seconds: 0, nanoseconds: 0)
 
-/// The average Gregorian year.
+// Mean Gregorian year: 365.2425 days.
 const seconds_per_year = 31_556_952.0
 
 const decimals = 8
@@ -34,17 +28,16 @@ const tick_interval_milliseconds = 80
 
 pub fn main() -> Nil {
   let app = lustre.application(init:, update:, view:)
+
   let assert Ok(_started) = lustre.start(app, onto: "#" <> mount_id, with: Nil)
+
   Nil
 }
-
-// MODEL -----------------------------------------------------------------------
 
 pub type Model {
   Model(now: timestamp.Timestamp, phase: Phase)
 }
 
-/// Digits only roll once counting starts.
 pub type Phase {
   FirstPaint
   Counting
@@ -53,8 +46,6 @@ pub type Phase {
 pub fn init(_flags: Nil) -> #(Model, effect.Effect(Message)) {
   #(Model(now: timestamp.system_time(), phase: FirstPaint), tick())
 }
-
-// UPDATE ----------------------------------------------------------------------
 
 pub type Message {
   Ticked
@@ -71,15 +62,13 @@ pub fn update(
 
 fn tick() -> effect.Effect(Message) {
   use dispatch <- effect.from
-  use <- browser.after(milliseconds: tick_interval_milliseconds)
+  use <- browser.after_visible(milliseconds: tick_interval_milliseconds)
   dispatch(Ticked)
 }
 
-// AGE -------------------------------------------------------------------------
-
-/// The age as text, like `19.12345678`.
 fn reading(now: timestamp.Timestamp) -> String {
   let born = timestamp.from_calendar(birthday, midnight, calendar.utc_offset)
+
   let years =
     { timestamp.to_unix_seconds(now) -. timestamp.to_unix_seconds(born) }
     /. seconds_per_year
@@ -105,8 +94,6 @@ fn power(base: Int, exponent: Int) -> Int {
   }
 }
 
-// VIEW ------------------------------------------------------------------------
-
 pub fn view(model: Model) -> element.Element(Message) {
   let reading = reading(model.now)
 
@@ -130,8 +117,6 @@ fn character(grapheme: String, phase: Phase) -> element.Element(Message) {
   }
 }
 
-/// A digit stacked on the one it replaced. Keying it by digit makes a change
-/// mount a fresh strip, which replays the roll animation.
 fn reel(digit: Int, phase: Phase) -> element.Element(Message) {
   let previous = case phase {
     FirstPaint -> digit

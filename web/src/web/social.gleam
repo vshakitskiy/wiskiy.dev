@@ -1,5 +1,3 @@
-//// Links to my profiles elsewhere shown as icons.
-
 import gleam/list
 import lustre/attribute
 import lustre/element
@@ -28,7 +26,6 @@ const socials = [
   Social(name: "Telegram", url: "https://t.me/vshakitskiy", icon: Telegram),
 ]
 
-/// The row of profile icons.
 pub fn view() -> element.Element(a) {
   html.ul([attribute.class("socials")], list.map(socials, link))
 }
@@ -74,7 +71,6 @@ fn icon(icon: Icon) -> element.Element(a) {
   }
 }
 
-/// A single path SVG icon that takes the text colour.
 fn mark(view_box view_box: String, path path: String) -> element.Element(a) {
   svg.svg(
     [
